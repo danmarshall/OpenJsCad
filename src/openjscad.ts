@@ -1,12 +1,16 @@
-var OpenJsCad;
-(function (OpenJsCad) {
-    OpenJsCad.log = function (txt) {
+module OpenJsCad {
+
+    export interface ILog {
+        (x: string): void;
+        prevLogTime?: number;
+    }
+
+    export var log: ILog = function (txt: string) {
         var timeInMs = Date.now();
-        var prevtime = OpenJsCad.log.prevLogTime;
-        if (!prevtime)
-            prevtime = timeInMs;
+        var prevtime = log.prevLogTime;
+        if (!prevtime) prevtime = timeInMs;
         var deltatime = timeInMs - prevtime;
-        OpenJsCad.log.prevLogTime = timeInMs;
+        log.prevLogTime = timeInMs;
         var timefmt = (deltatime * 0.001).toFixed(3);
         txt = "[" + timefmt + "] " + txt;
         if ((typeof (console) == "object") && (typeof (console.log) == "function")) {
@@ -15,14 +19,47 @@ var OpenJsCad;
         else if ((typeof (self) == "object") && (typeof (self.postMessage) == "function")) {
             self.postMessage({ cmd: 'log', txt: txt }, null);
         }
-        else
-            throw new Error("Cannot log");
+        else throw new Error("Cannot log");
     };
+
+    export interface IViewerOptions {
+        drawLines: boolean;
+        drawFaces: boolean;
+        color: number[];
+        bgColor: number;
+        noWebGL: boolean;
+    }
+
+    interface IDrawOptions {
+        lines: boolean;
+        faces: boolean;
+    }
+
+    interface ISize {
+        width: string;
+        widthDefault: string;
+        height: string;
+        heightDefault: string;
+    }
+
     // A viewer is a WebGL canvas that lets the user view a mesh. The user can
     // tumble it around by dragging the mouse.
-    var Viewer = (function () {
-        function Viewer(containerElm, size, options) {
-            this.perspective = 45; // in degrees
+    export class Viewer {
+        private perspective = 45; // in degrees
+        private drawOptions: IDrawOptions;
+        private size: ISize;
+        private defaultColor_: number[];
+        private bgColor_: THREE.Color;
+        private containerElm_: HTMLElement;
+        private scene_: THREE.Scene;
+        private camera_: THREE.PerspectiveCamera;
+        private controls_;
+        private renderer_;
+        private canvas: HTMLCanvasElement;
+        private pauseRender_: boolean;
+        private requestID_: number;
+
+        constructor(containerElm, size, options: IViewerOptions) {
             // config stuff
             // fg and bg colors
             var defaultBgColor = [0.93, 0.93, 0.93];
@@ -36,6 +73,7 @@ var OpenJsCad;
                 faces: options.drawFaces
             };
             // end config stuff
+
             this.size = size;
             this.defaultColor_ = options.color || defaultMeshColor;
             // default is opaque if not defined otherwise
@@ -46,6 +84,7 @@ var OpenJsCad;
             this.bgColor_.setRGB.apply(this.bgColor_, options.bgColor || defaultBgColor);
             // the elm to contain the canvas
             this.containerElm_ = containerElm;
+
             this.createScene(drawAxes, axLength);
             this.createCamera();
             this.parseSizeParams();
@@ -53,15 +92,16 @@ var OpenJsCad;
             this.createRenderer(options.noWebGL);
             this.animate();
         }
+
         // adds axes too
-        Viewer.prototype.createScene = function (drawAxes, axLen) {
+        createScene (drawAxes, axLen) {
             var scene = new THREE.Scene();
             this.scene_ = scene;
             if (drawAxes) {
                 this.drawAxes(axLen);
             }
-        };
-        Viewer.prototype.createCamera = function () {
+        }
+        createCamera () {
             var light = new THREE.PointLight();
             light.position.set(0, 0, 0);
             // aspect ration changes later - just a placeholder
@@ -70,8 +110,8 @@ var OpenJsCad;
             camera.add(light);
             camera.up.set(0, 0, 1);
             this.scene_.add(camera);
-        };
-        Viewer.prototype.createControls = function (canvas) {
+        }
+        createControls (canvas) {
             // controls. just change this line (and script include) to other threejs controls if desired
             var controls = new THREE.OrbitControls(this.camera_, canvas);
             this.controls_ = controls;
@@ -80,30 +120,32 @@ var OpenJsCad;
             // controls.autoRotate = true;
             controls.autoRotateSpeed = 1;
             controls.addEventListener('change', this.render.bind(this));
-        };
-        Viewer.prototype.webGLAvailable = function () {
+        }
+        webGLAvailable(): boolean {
             try {
                 var canvas = document.createElement("canvas");
-                return !!(WebGLRenderingContext &&
+                return !!(
+                    WebGLRenderingContext &&
                     (canvas.getContext("webgl") ||
                         canvas.getContext("experimental-webgl")));
-            }
-            catch (e) {
+            } catch (e) {
                 return false;
             }
-        };
-        Viewer.prototype.createRenderer = function (bool_noWebGL) {
+        }
+        createRenderer (bool_noWebGL) {
             var Renderer;
+            
             if (this.webGLAvailable() && !bool_noWebGL) {
                 Renderer = THREE.WebGLRenderer;
-            }
-            else {
+            } else {
                 Renderer = THREE.CanvasRenderer;
             }
+
             // we're creating new canvas on switching renderer, as same
             // canvas doesn't tolerate moving from webgl to canvasrenderer 
             var renderer = new Renderer({ precision: 'highp' });
             this.renderer_ = renderer;
+
             if (this.canvas) {
                 this.canvas.remove();
             }
@@ -114,6 +156,7 @@ var OpenJsCad;
             // renderer.setClearColor(scene.fog.color);
             // and add controls
             this.createControls(renderer.domElement);
+
             // if coming in from contextrestore, enable rendering here
             this.pauseRender_ = false;
             this.handleResize();
@@ -127,25 +170,25 @@ var OpenJsCad;
                 this_.createRenderer(true);
                 this_.animate();
             }, false);
-        };
-        Viewer.prototype.render = function () {
+        }
+        render () {
             if (!this.pauseRender_) {
                 this.renderer_.render(this.scene_, this.camera_);
             }
-        };
-        Viewer.prototype.animate = function () {
+        }
+        animate () {
             // reduce fps? replace func with
             // setTimeout( function() {
             //     requestAnimationFrame(this.animate.bind(this));
             // }, 1000 / 40 ); // last num = fps
             this.requestID_ = requestAnimationFrame(this.animate.bind(this));
             this.controls_.update();
-        };
-        Viewer.prototype.cancelAnimate = function () {
+        }
+        cancelAnimate () {
             this.pauseRender_ = true;
             cancelAnimationFrame(this.requestID_);
-        };
-        Viewer.prototype.refreshRenderer = function (bool_noWebGL) {
+        }
+        refreshRenderer (bool_noWebGL) {
             this.cancelAnimate();
             if (!bool_noWebGL) {
                 // need to refresh scene objects except camera
@@ -153,7 +196,7 @@ var OpenJsCad;
                     return !(ch instanceof THREE.Camera);
                 });
                 this.scene_.remove.apply(this.scene_, objs);
-                var newObjs = objs.map(function (obj) {
+                var newObjs = objs.map(function (obj: any) {
                     obj.geometry = obj.geometry.clone();
                     obj.material = obj.material.clone();
                     return obj.clone();
@@ -163,9 +206,9 @@ var OpenJsCad;
             }
             this.createRenderer(bool_noWebGL);
             this.animate();
-        };
+        }
         // https://www.youtube.com/watch?v=c-O-tOYdAFY#t=858 (pause) for a basic grid
-        Viewer.prototype.drawAxes = function (axLen) {
+        drawAxes (axLen) {
             axLen = axLen || 1000;
             function v(x, y, z) {
                 return new THREE.Vector3(x, y, z);
@@ -175,27 +218,28 @@ var OpenJsCad;
                 [v(0, axLen, 0), 0x00FF00], [v(0, -axLen, 0), 0xD3D3D3],
                 [v(0, 0, axLen), 0x0000FF], [v(0, 0, -axLen), 0xD3D3D3]]
                 .forEach(function (axdef) {
-                var lineGeometry = new THREE.Geometry();
-                lineGeometry.vertices.push(origin, axdef[0]);
-                this.scene_.add(new THREE.Line(lineGeometry, new THREE.LineBasicMaterial({ color: axdef[1], lineWidth: 1 })));
-            }, this);
-        };
-        Viewer.prototype.setCsg = function (csg, resetZoom) {
+                    var lineGeometry = new THREE.Geometry();
+                    lineGeometry.vertices.push(origin, <THREE.Vector3>axdef[0]);
+                    this.scene_.add(new THREE.Line(lineGeometry,
+                        new THREE.LineBasicMaterial({ color: <number>axdef[1], lineWidth: 1 })))
+                }, this);
+        }
+        setCsg (csg, resetZoom) {
             this.clear();
             var res = THREE.CSG.fromCSG(csg, this.defaultColor_);
             var colorMeshes = [].concat(res.colorMesh)
                 .map(function (mesh) {
-                mesh.userData = { faces: true };
-                return mesh;
-            });
+                    mesh.userData = { faces: true };
+                    return mesh;
+                });
             var wireMesh = res.wireframe;
             wireMesh.userData = { lines: true };
             this.scene_.add.apply(this.scene_, colorMeshes);
             this.scene_.add(wireMesh);
             resetZoom && this.resetZoom(res.boundLen);
             this.applyDrawOptions();
-        };
-        Viewer.prototype.applyDrawOptions = function () {
+        }
+        applyDrawOptions () {
             this.getUserMeshes('faces').forEach(function (faceMesh) {
                 faceMesh.visible = !!this.drawOptions.faces;
             }, this);
@@ -203,22 +247,21 @@ var OpenJsCad;
                 lineMesh.visible = !!this.drawOptions.lines;
             }, this);
             this.render();
-        };
-        Viewer.prototype.clear = function () {
+        }
+        clear () {
             this.scene_.remove.apply(this.scene_, this.getUserMeshes());
-        };
+        }
         // gets the meshes created by setCsg
-        Viewer.prototype.getUserMeshes = function (str) {
+        getUserMeshes (str?) {
             return this.scene_.children.filter(function (ch) {
                 if (str) {
                     return ch.userData[str];
-                }
-                else {
+                } else {
                     return ch.userData.lines || ch.userData.faces;
                 }
             });
-        };
-        Viewer.prototype.resetZoom = function (r) {
+        }
+        resetZoom (r) {
             if (!r) {
                 // empty object - any default zoom
                 r = 10;
@@ -229,8 +272,8 @@ var OpenJsCad;
             this.camera_.zoom = 1;
             this.camera_.lookAt(this.scene_.position);
             this.camera_.updateProjectionMatrix();
-        };
-        Viewer.prototype.parseSizeParams = function () {
+        }
+        parseSizeParams () {
             // essentially, allow all relative + px. Not cm and such.
             var winResizeUnits = ['%', 'vh', 'vw', 'vmax', 'vmin'];
             var width, height;
@@ -249,10 +292,10 @@ var OpenJsCad;
                 winResizeUnits.indexOf(hUnit) != -1;
             // e.g if units are %, need to keep resizing canvas with dom
             if (isDynUnit) {
-                window.addEventListener('resize', this.handleResize.bind(this));
+                window.addEventListener('resize', this.handleResize.bind(this))
             }
-        };
-        Viewer.prototype.handleResize = function () {
+        }
+        handleResize () {
             var hIsRatio = typeof this.size.height != 'string';
             // apply css, then check px size. This is in case css is not in px
             this.canvas.style.width = this.size.width;
@@ -262,19 +305,19 @@ var OpenJsCad;
             var widthInPx = this.canvas.clientWidth;
             var heightInPx = hIsRatio ?
                 widthInPx * parseInt(this.size.height, 10) :
-                this.canvas.clientHeight; // size.height.match(/^(\d+(?:\.\d+)?)(.*)$/)[1];
+                this.canvas.clientHeight;  // size.height.match(/^(\d+(?:\.\d+)?)(.*)$/)[1];
+
             this.camera_.aspect = widthInPx / heightInPx;
             this.camera_.updateProjectionMatrix();
             // set canvas attributes (false => don't set css)
             this.renderer_.setSize(widthInPx, heightInPx, false);
             this.render();
-        };
-        return Viewer;
-    })();
-    OpenJsCad.Viewer = Viewer;
+        }
+    }
+
     // make a full url path out of a base path and url component.
     // url argument is interpreted as a folder name if it ends with a slash
-    function makeAbsoluteUrl(url, baseurl) {
+    export function makeAbsoluteUrl(url, baseurl) {
         if (!url.match(/^[a-z]+\:/i)) {
             var re = /^\/|\/$/g;
             if (baseurl[baseurl.length - 1] != '/') {
@@ -292,17 +335,16 @@ var OpenJsCad;
         }
         return url;
     }
-    OpenJsCad.makeAbsoluteUrl = makeAbsoluteUrl;
-    function isChrome() {
+
+    export function isChrome() {
         return (navigator.userAgent.search("Chrome") >= 0);
     }
-    OpenJsCad.isChrome = isChrome;
+
     // This is called from within the web worker. Execute the main() function of the supplied script
     // and post a message to the calling thread when finished
-    function runMainInWorker(mainParameters) {
+    export function runMainInWorker(mainParameters) {
         try {
-            if (typeof (main) != 'function')
-                throw new Error('Your jscad file should contain a function main() which returns a CSG solid or a CAG area.');
+            if (typeof (main) != 'function') throw new Error('Your jscad file should contain a function main() which returns a CSG solid or a CAG area.');
             OpenJsCad.log.prevLogTime = Date.now();
             var result = main(mainParameters);
             result = OpenJsCad.expandResultObjectArray(result);
@@ -319,9 +361,9 @@ var OpenJsCad;
             self.postMessage({ cmd: 'error', err: errtxt }, null);
         }
     }
-    OpenJsCad.runMainInWorker = runMainInWorker;
+
     // expand an array of CSG or CAG objects into an array of objects [{data: <CAG or CSG object>}]
-    function expandResultObjectArray(result) {
+    export function expandResultObjectArray(result) {
         if (result instanceof Array) {
             result = result.map(function (resultelement) {
                 if ((resultelement instanceof CSG) || (resultelement instanceof CAG)) {
@@ -332,9 +374,9 @@ var OpenJsCad;
         }
         return result;
     }
-    OpenJsCad.expandResultObjectArray = expandResultObjectArray;
+
     // check whether the supplied script returns valid object(s)
-    function checkResult(result) {
+    export function checkResult(result) {
         var ok = true;
         if (typeof (result) != "object") {
             ok = false;
@@ -351,6 +393,7 @@ var OpenJsCad;
                         }
                         else {
                             if ((resultelement.data instanceof CSG) || (resultelement.data instanceof CAG)) {
+                                // ok
                             }
                             else {
                                 ok = false;
@@ -358,6 +401,7 @@ var OpenJsCad;
                         }
                     });
                 }
+
             }
             else if ((result instanceof CSG) || (result instanceof CAG)) {
             }
@@ -369,10 +413,10 @@ var OpenJsCad;
             throw new Error("Your main() function does not return valid data. It should return one of the following: a CSG object, a CAG object, an array of CSG/CAG objects, or an array of objects: [{name:, caption:, data:}, ...] where data contains a CSG or CAG object.");
         }
     }
-    OpenJsCad.checkResult = checkResult;
+
     // convert the result to a compact binary representation, to be copied from the webworker to the main thread.
     // it is assumed that checkResult() has been called already so the data is valid.
-    function resultToCompactBinary(resultin) {
+    export function resultToCompactBinary(resultin) {
         var resultout;
         if (resultin instanceof Array) {
             resultout = resultin.map(function (resultelement) {
@@ -386,8 +430,8 @@ var OpenJsCad;
         }
         return resultout;
     }
-    OpenJsCad.resultToCompactBinary = resultToCompactBinary;
-    function resultFromCompactBinary(resultin) {
+
+    export function resultFromCompactBinary(resultin) {
         function fromCompactBinary(r) {
             var result;
             if (r.class == "CSG") {
@@ -414,8 +458,9 @@ var OpenJsCad;
         }
         return resultout;
     }
-    OpenJsCad.resultFromCompactBinary = resultFromCompactBinary;
-    function parseJsCadScriptSync(script, mainParameters, debugging) {
+
+
+    export function parseJsCadScriptSync(script, mainParameters, debugging) {
         var workerscript = "";
         workerscript += script;
         if (debugging) {
@@ -436,13 +481,14 @@ var OpenJsCad;
         OpenJsCad.checkResult(result);
         return result;
     }
-    OpenJsCad.parseJsCadScriptSync = parseJsCadScriptSync;
+
     // callback: should be function(error, csg)
-    function parseJsCadScriptASync(script, mainParameters, options, callback) {
+    export function parseJsCadScriptASync(script, mainParameters, options, callback) {
         var baselibraries = [
             "src/csg.js",
             "src/openjscad.js"
         ];
+
         var baseurl = document.location.href.replace(/\?.*$/, '');
         var openjscadurl = baseurl;
         if (typeof options['openJsCadPath'] != 'undefined') {
@@ -450,10 +496,12 @@ var OpenJsCad;
             // on openjscadurl
             openjscadurl = OpenJsCad.makeAbsoluteUrl(options['openJsCadPath'], baseurl) + '/';
         }
+
         var libraries = [];
         if (typeof options['libraries'] != 'undefined') {
             libraries = options['libraries'];
         }
+
         var workerscript = "";
         workerscript += script;
         workerscript += "\n\n\n\n//// The following code is added by OpenJsCad:\n";
@@ -469,9 +517,10 @@ var OpenJsCad;
         workerscript += "self.addEventListener('message', function(e) {if(e.data && e.data.cmd == 'render'){";
         workerscript += "  OpenJsCad.runMainInWorker(" + JSON.stringify(mainParameters) + ");";
         workerscript += "}},false);\n";
+
         var blobURL = OpenJsCad.textToBlobUrl(workerscript);
-        if (!window.Worker)
-            throw new Error("Your browser doesn't support Web Workers. Please try the Chrome browser instead.");
+
+        if (!window.Worker) throw new Error("Your browser doesn't support Web Workers. Please try the Chrome browser instead.");
         var worker = new Worker(blobURL);
         worker.onmessage = function (e) {
             if (e.data) {
@@ -488,7 +537,7 @@ var OpenJsCad;
                 }
             }
         };
-        worker.onerror = function (e) {
+        worker.onerror = function (e: ErrorEvent) {
             var errtxt = "Error in line " + e.lineno + ": " + e.message;
             callback(errtxt, null);
         };
@@ -497,35 +546,28 @@ var OpenJsCad;
         }); // Start the worker.
         return worker;
     }
-    OpenJsCad.parseJsCadScriptASync = parseJsCadScriptASync;
-    function getWindowURL() {
-        if (window.URL)
-            return window.URL;
-        else if (window.webkitURL)
-            return window.webkitURL;
-        else
-            throw new Error("Your browser doesn't support window.URL");
+
+    export function getWindowURL() {
+        if (window.URL) return window.URL;
+        else if (window.webkitURL) return window.webkitURL;
+        else throw new Error("Your browser doesn't support window.URL");
     }
-    OpenJsCad.getWindowURL = getWindowURL;
-    function textToBlobUrl(txt) {
+
+    export function textToBlobUrl(txt) {
         var windowURL = OpenJsCad.getWindowURL();
         var blob = new Blob([txt], { type: 'application/javascript' });
         var blobURL = windowURL.createObjectURL(blob);
-        if (!blobURL)
-            throw new Error("createObjectURL() failed");
+        if (!blobURL) throw new Error("createObjectURL() failed");
         return blobURL;
     }
-    OpenJsCad.textToBlobUrl = textToBlobUrl;
-    function revokeBlobUrl(url) {
-        if (window.URL)
-            window.URL.revokeObjectURL(url);
-        else if (window.webkitURL)
-            window.webkitURL.revokeObjectURL(url);
-        else
-            throw new Error("Your browser doesn't support window.URL");
+
+    export function revokeBlobUrl(url) {
+        if (window.URL) window.URL.revokeObjectURL(url);
+        else if (window.webkitURL) window.webkitURL.revokeObjectURL(url);
+        else throw new Error("Your browser doesn't support window.URL");
     }
-    OpenJsCad.revokeBlobUrl = revokeBlobUrl;
-    function FileSystemApiErrorHandler(fileError, operation) {
+
+    export function FileSystemApiErrorHandler(fileError, operation) {
         var errormap = {
             1: 'NOT_FOUND_ERR',
             2: 'SECURITY_ERR',
@@ -550,16 +592,16 @@ var OpenJsCad;
         var errtxt = "FileSystem API error: " + operation + " returned error " + errname;
         throw new Error(errtxt);
     }
-    OpenJsCad.FileSystemApiErrorHandler = FileSystemApiErrorHandler;
-    function AlertUserOfUncaughtExceptions() {
+
+    export function AlertUserOfUncaughtExceptions() {
         window.onerror = function (message, url, line) {
             message = message.replace(/^Uncaught /i, "");
             alert(message + "\n\n(" + url + " line " + line + ")");
         };
     }
-    OpenJsCad.AlertUserOfUncaughtExceptions = AlertUserOfUncaughtExceptions;
+
     // parse the jscad script to get the parameter definitions
-    function getParamDefinitions(script) {
+    export function getParamDefinitions(script) {
         var scriptisvalid = true;
         try {
             // first try to execute the script itself
@@ -582,31 +624,106 @@ var OpenJsCad;
         }
         return params;
     }
-    OpenJsCad.getParamDefinitions = getParamDefinitions;
-    var Processor = (function () {
-        function Processor(containerdiv, options, onchange) {
-            this.viewerdiv = null;
-            this.viewer = null;
-            this.processing = false;
-            this.currentObject = null;
-            this.hasValidCurrentObject = false;
-            this.hasOutputFile = false;
-            this.paramDefinitions = [];
-            this.paramControls = [];
-            this.script = null;
-            this.hasError = false;
-            this.debugging = false;
+
+    export interface EventHandler {
+        (ev?: Event): any;
+    }
+
+    /**
+     * options parameter:
+     * - drawLines: display wireframe lines
+     * - drawFaces: display surfaces
+     * - bgColor: canvas background color
+     * - color: object color
+     * - viewerwidth, viewerheight: set rendering size. Works with any css unit.
+     *     viewerheight can also be specified as a ratio to width, ie number e (0, 1]
+     * - noWebGL: force render without webGL
+     * - verbose: show additional info (currently only time used for rendering)
+     */
+    export interface IProcessorOptions {
+        openJsCadPath?: string;
+        libraries?: any[];
+    }
+
+    export interface ViewerSize {
+        widthDefault: string;
+        heightDefault: string;
+        width: number;
+        height: number;
+        heightratio: number;
+    }
+
+    export interface ProcessorOptions extends IViewerOptions {
+        drawLines: boolean;
+        drawFaces: boolean;
+        verbose: boolean;
+        viewerwidth: number;
+        viewerheight: number;
+        viewerheightratio: number;
+    }
+
+    export class Processor {
+        private containerdiv: HTMLDivElement;
+        private options: ProcessorOptions;
+        private onchange: (ev?: Event) => any;
+
+        // default applies unless sizes specified in options
+        private static widthDefault = "800px";
+        private static heightDefault = "600px";
+
+        private viewerdiv = null;
+        private viewer = null;
+
+        private viewerSize: ViewerSize;
+
+        private processing = false;
+        private currentObject: CxG = null;
+        private hasValidCurrentObject = false;
+        private hasOutputFile = false;
+        private worker: Worker;
+        private paramDefinitions: any[] = [];
+        private paramControls: HTMLElement[] = [];
+        private script: string = null;
+        private hasError = false;
+        private debugging = false;
+
+        private errordiv: HTMLDivElement;
+        private errorpre: HTMLPreElement;
+        private statusdiv: HTMLDivElement;
+        private controldiv: HTMLDivElement;
+        private statusspan: HTMLSpanElement;
+        private statusbuttons: HTMLDivElement;
+        private abortbutton: HTMLButtonElement;
+        private renderedElementDropdown: HTMLSelectElement;
+        private formatDropdown: HTMLSelectElement;
+        private generateOutputFileButton: HTMLButtonElement;
+        private downloadOutputFileLink: HTMLAnchorElement;
+        private parametersdiv: HTMLDivElement;
+        private parameterstable: HTMLTableElement;
+
+        private currentFormat;
+        private filename: string;
+        private currentObjects;
+        private currentObjectIndex: number;
+        private isFirstRender_: boolean;
+        private outputFileDirEntry;
+        private outputFileBlobUrl;
+
+        constructor(containerdiv, options, onchange) {
             this.containerdiv = containerdiv;
             this.options = options = options || {};
             this.onchange = onchange;
+
             // Draw black triangle lines ("wireframe")
             this.options.drawLines = !!this.cleanOption(options.drawLines, false);
             // Draw surfaces
             this.options.drawFaces = !!this.cleanOption(options.drawFaces, true);
             // verbose output
             this.options.verbose = !!this.cleanOption(options.verbose, true);
+
             this.viewerdiv = null;
             this.viewer = null;
+
             this.viewerSize = {
                 widthDefault: Processor.widthDefault,
                 heightDefault: Processor.heightDefault,
@@ -614,46 +731,55 @@ var OpenJsCad;
                 height: this.options.viewerheight,
                 heightratio: this.options.viewerheightratio
             };
+            
             this.createElements();
         }
-        Processor.convertToSolid = function (obj) {
+
+        public static convertToSolid(obj) {
             if ((typeof (obj) == "object") && ((obj instanceof CAG))) {
                 // convert a 2D shape to a thin solid:
                 obj = obj.extrude({ offset: [0, 0, 0.1] });
             }
             else if ((typeof (obj) == "object") && ((obj instanceof CSG))) {
+                // obj already is a solid
             }
             else {
                 throw new Error("Cannot convert to solid");
             }
             return obj;
-        };
-        Processor.prototype.cleanOption = function (option, deflt) {
+        }
+
+
+        cleanOption (option, deflt) {
             return typeof option != "undefined" ? option : deflt;
-        };
+        }
         // pass "faces" or "lines"
-        Processor.prototype.toggleDrawOption = function (str) {
+        toggleDrawOption (str) {
             if (str == 'faces' || str == 'lines') {
                 var newState = !this.viewer.drawOptions[str];
                 this.setDrawOption(str, newState);
                 return newState;
             }
-        };
+        }
         // e.g. setDrawOption('lines', false);
-        Processor.prototype.setDrawOption = function (str, bool) {
+        setDrawOption (str, bool) {
             if (str == 'faces' || str == 'lines') {
                 this.viewer.drawOptions[str] = !!bool;
             }
             this.viewer.applyDrawOptions();
-        };
-        Processor.prototype.handleResize = function () {
+        }
+
+        handleResize () {
             this.viewer && (this.viewer.handleResize());
-        };
-        Processor.prototype.createElements = function () {
-            var that = this; //for event handlers
+        }
+
+        createElements () {
+            var that = this;//for event handlers
+
             while (this.containerdiv.children.length > 0) {
                 this.containerdiv.removeChild(this.containerdiv.children[0]);
             }
+
             var viewerdiv = document.createElement("div");
             viewerdiv.className = "viewer";
             this.containerdiv.appendChild(viewerdiv);
@@ -669,16 +795,16 @@ var OpenJsCad;
             var this_ = this;
             [['faces', 'surfaces', this.options.drawFaces],
                 ['lines', 'lines', this.options.drawLines]].forEach(function (tup) {
-                var cb = document.createElement('input');
-                cb.type = 'checkbox';
-                cb.id = 'cb_' + tup[0];
-                cb.checked = tup[2];
-                cb.addEventListener('click', function () { this.checked = this_.toggleDrawOption(tup[0]); });
-                var lb = document.createElement('label');
-                lb.htmlFor = "cb_" + tup[0];
-                lb.appendChild(document.createTextNode(tup[1] + "  "));
-                [cb, lb].forEach(function (ui) { this.controldiv.appendChild(ui); }, this);
-            }, this);
+                    var cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.id = 'cb_' + tup[0];
+                    cb.checked = <boolean>tup[2];
+                    cb.addEventListener('click', function () { this.checked = this_.toggleDrawOption(tup[0]) });
+                    var lb = document.createElement('label');
+                    lb.htmlFor = "cb_" + tup[0];
+                    lb.appendChild(document.createTextNode(tup[1] + "  "));
+                    [cb, lb].forEach(function (ui) { this.controldiv.appendChild(ui) }, this);
+                }, this);
             this.statusspan = document.createElement("span");
             this.statusbuttons = document.createElement("div");
             this.statusbuttons.style.cssFloat = "right";
@@ -691,12 +817,14 @@ var OpenJsCad;
                 that.abort();
             };
             this.statusbuttons.appendChild(this.abortbutton);
+
             this.renderedElementDropdown = document.createElement("select");
             this.renderedElementDropdown.onchange = function (e) {
                 that.setSelectedObjectIndex(that.renderedElementDropdown.selectedIndex);
             };
             this.renderedElementDropdown.style.display = "none";
             this.statusbuttons.appendChild(this.renderedElementDropdown);
+
             this.formatDropdown = document.createElement("select");
             this.formatDropdown.onchange = function (e) {
                 that.currentFormat = that.formatDropdown.options[that.formatDropdown.selectedIndex].value;
@@ -730,11 +858,11 @@ var OpenJsCad;
             this.containerdiv.appendChild(this.errordiv);
             this.containerdiv.appendChild(this.parametersdiv);
             this.clearViewer();
-        };
-        Processor.prototype.getFilenameForRenderedObject = function () {
+        }
+
+        getFilenameForRenderedObject () {
             var filename = this.filename;
-            if (!filename)
-                filename = "openjscad";
+            if (!filename) filename = "openjscad";
             var index = this.renderedElementDropdown.selectedIndex;
             if (index >= 0) {
                 var renderedelement = this.currentObjects[index];
@@ -746,8 +874,9 @@ var OpenJsCad;
                 }
             }
             return filename;
-        };
-        Processor.prototype.setRenderedObjects = function (obj) {
+        }
+
+        setRenderedObjects (obj) {
             // if obj is a single CSG or CAG, convert to the array format:
             if (obj === null) {
                 obj = [];
@@ -762,8 +891,8 @@ var OpenJsCad;
                 }
             }
             this.currentObjects = obj;
-            while (this.renderedElementDropdown.options.length > 0)
-                this.renderedElementDropdown.options.remove(0);
+            while (this.renderedElementDropdown.options.length > 0) this.renderedElementDropdown.options.remove(0);
+
             for (var i = 0; i < obj.length; ++i) {
                 var renderedelement = obj[i];
                 var caption;
@@ -782,8 +911,9 @@ var OpenJsCad;
             }
             this.renderedElementDropdown.style.display = (obj.length >= 2) ? "inline" : "none";
             this.setSelectedObjectIndex((obj.length > 0) ? 0 : -1);
-        };
-        Processor.prototype.setSelectedObjectIndex = function (index) {
+        }
+
+        setSelectedObjectIndex (index: number) {
             this.clearOutputFile();
             this.renderedElementDropdown.selectedIndex = index;
             var obj;
@@ -795,8 +925,10 @@ var OpenJsCad;
             }
             this.currentObjectIndex = index;
             this.currentObject = obj;
+
             while (this.formatDropdown.options.length > 0)
                 this.formatDropdown.options.remove(0);
+
             if (obj !== null) {
                 var csg = OpenJsCad.Processor.convertToSolid(obj);
                 // // reset zoom unless toggling between valid objects
@@ -805,47 +937,56 @@ var OpenJsCad;
                 // (re-)set zoom only on very first rendering action
                 this.viewer.setCsg(csg, this.isFirstRender_);
                 this.hasValidCurrentObject = true;
+
                 this.supportedFormatsForCurrentObject().forEach(function (format) {
                     var option = document.createElement("option");
                     option.setAttribute("value", format);
                     option.appendChild(document.createTextNode(this.formatInfo(format).displayName));
                     this.formatDropdown.options.add(option);
                 }, this);
+
                 this.updateDownloadLink();
-            }
-            else {
+
+            } else {
                 this.viewer.clear();
                 this.hasValidCurrentObject = false;
             }
-        };
-        Processor.prototype.selectedFormat = function () {
+
+
+        }
+
+        selectedFormat () {
             return this.formatDropdown.options[this.formatDropdown.selectedIndex].value;
-        };
-        Processor.prototype.selectedFormatInfo = function () {
+        }
+
+        selectedFormatInfo () {
             return this.formatInfo(this.selectedFormat());
-        };
-        Processor.prototype.updateDownloadLink = function () {
+        }
+
+        updateDownloadLink () {
             var ext = this.selectedFormatInfo().extension;
             this.generateOutputFileButton.innerHTML = "Generate " + ext.toUpperCase();
-        };
-        Processor.prototype.clearViewer = function () {
+        }
+
+        clearViewer () {
             this.clearOutputFile();
             this.setRenderedObjects(null);
             this.hasValidCurrentObject = false;
             this.enableItems();
-        };
-        Processor.prototype.abort = function () {
+        }
+
+        abort () {
             if (this.processing) {
                 //todo: abort
                 this.processing = false;
                 this.statusspan.innerHTML = "Aborted.";
                 this.worker.terminate();
                 this.enableItems();
-                if (this.onchange)
-                    this.onchange();
+                if (this.onchange) this.onchange();
             }
-        };
-        Processor.prototype.enableItems = function () {
+        }
+
+        enableItems () {
             this.abortbutton.style.display = this.processing ? "inline" : "none";
             this.formatDropdown.style.display = ((!this.hasOutputFile) && (this.hasValidCurrentObject)) ? "inline" : "none";
             this.generateOutputFileButton.style.display = ((!this.hasOutputFile) && (this.hasValidCurrentObject)) ? "inline" : "none";
@@ -853,29 +994,33 @@ var OpenJsCad;
             this.parametersdiv.style.display = (this.paramControls.length > 0) ? "block" : "none";
             this.errordiv.style.display = this.hasError ? "block" : "none";
             this.statusdiv.style.display = this.hasError ? "none" : "block";
-        };
-        Processor.prototype.setOpenJsCadPath = function (path) {
+        }
+
+        setOpenJsCadPath (path) {
             this.options['openJsCadPath'] = path;
-        };
-        Processor.prototype.addLibrary = function (lib) {
+        }
+
+        addLibrary (lib) {
             if (typeof this.options['libraries'] == 'undefined') {
                 this.options['libraries'] = [];
             }
             this.options['libraries'].push(lib);
-        };
-        Processor.prototype.setError = function (txt) {
+        }
+
+        setError (txt) {
             this.hasError = (txt != "");
             this.errorpre.textContent = txt;
             this.enableItems();
-        };
-        Processor.prototype.setDebugging = function (debugging) {
+        }
+
+        setDebugging (debugging) {
             this.debugging = debugging;
-        };
+        }
+  
         // script: javascript code
         // filename: optional, the name of the .jscad file
-        Processor.prototype.setJsCad = function (script, filename) {
-            if (!filename)
-                filename = "openjscad.jscad";
+        setJsCad (script, filename) {
+            if (!filename) filename = "openjscad.jscad";
             filename = filename.replace(/\.jscad$/i, "");
             this.abort();
             this.clearViewer();
@@ -900,11 +1045,11 @@ var OpenJsCad;
             }
             else {
                 this.enableItems();
-                if (this.onchange)
-                    this.onchange();
+                if (this.onchange) this.onchange();
             }
-        };
-        Processor.prototype.getParamValues = function () {
+        }
+
+        getParamValues () {
             var paramValues = {};
             for (var i = 0; i < this.paramDefinitions.length; i++) {
                 var paramdef = this.paramDefinitions[i];
@@ -915,7 +1060,7 @@ var OpenJsCad;
                 var control = this.paramControls[i];
                 var value;
                 if ((type == "text") || (type == "longtext") || (type == "float") || (type == "int")) {
-                    value = control.value;
+                    value = (<HTMLInputElement>control).value;
                     if ((type == "float") || (type == "int")) {
                         var isnumber = !isNaN(parseFloat(value)) && isFinite(value);
                         if (!isnumber) {
@@ -930,16 +1075,17 @@ var OpenJsCad;
                     }
                 }
                 else if (type == "choice") {
-                    value = control.options[control.selectedIndex].value;
+                    value = (<HTMLSelectElement>control).options[(<HTMLSelectElement>control).selectedIndex].value;
                 }
                 else if (type == "bool") {
-                    value = control.checked;
+                    value = (<HTMLInputElement>control).checked;
                 }
                 paramValues[paramdef.name] = value;
             }
             return paramValues;
-        };
-        Processor.prototype.rebuildSolid = function () {
+        }
+
+        rebuildSolid () {
             this.abort();
             this.setError("");
             this.clearViewer();
@@ -951,6 +1097,7 @@ var OpenJsCad;
             var useSync = this.debugging;
             var options = {};
             var startTime = Date.now();
+
             if (!useSync) {
                 this.worker = OpenJsCad.parseJsCadScriptASync(this.script, paramValues, this.options, function (err, obj) {
                     that.processing = false;
@@ -968,8 +1115,7 @@ var OpenJsCad;
                             "  Rendered in " + elapsed + "ms" : "");
                     }
                     that.enableItems();
-                    if (that.onchange)
-                        that.onchange();
+                    if (that.onchange) that.onchange();
                 });
             }
             else {
@@ -989,17 +1135,19 @@ var OpenJsCad;
                     that.statusspan.innerHTML = "Error.";
                 }
                 that.enableItems();
-                if (that.onchange)
-                    that.onchange();
+                if (that.onchange) that.onchange();
             }
-        };
-        Processor.prototype.hasSolid = function () {
+        }
+
+        hasSolid () {
             return this.hasValidCurrentObject;
-        };
-        Processor.prototype.isProcessing = function () {
+        }
+
+        isProcessing () {
             return this.processing;
-        };
-        Processor.prototype.clearOutputFile = function () {
+        }
+
+        clearOutputFile () {
             if (this.hasOutputFile) {
                 this.hasOutputFile = false;
                 if (this.outputFileDirEntry) {
@@ -1011,11 +1159,11 @@ var OpenJsCad;
                     this.outputFileBlobUrl = null;
                 }
                 this.enableItems();
-                if (this.onchange)
-                    this.onchange();
+                if (this.onchange) this.onchange();
             }
-        };
-        Processor.prototype.generateOutputFile = function () {
+        }
+
+        generateOutputFile () {
             this.clearOutputFile();
             if (this.hasValidCurrentObject) {
                 try {
@@ -1025,36 +1173,38 @@ var OpenJsCad;
                     this.generateOutputFileBlobUrl();
                 }
             }
-        };
-        Processor.prototype.currentObjectToBlob = function () {
+        }
+
+        currentObjectToBlob () {
             var format = this.selectedFormat();
+
             var blob;
             if (format == "stl") {
-                blob = this.currentObject.fixTJunctions().toStlString();
+                blob = (<CSG>this.currentObject).fixTJunctions().toStlString();
             }
             else if (format == "x3d") {
-                blob = this.currentObject.fixTJunctions().toX3D();
+                blob = (<CSG>this.currentObject).fixTJunctions().toX3D();
             }
             else if (format == "dxf") {
-                blob = this.currentObject.toDxf();
+                blob = (<CAG>this.currentObject).toDxf();
             }
             else {
                 throw new Error("Not supported");
             }
             return blob;
-        };
-        Processor.prototype.supportedFormatsForCurrentObject = function () {
+        }
+
+        supportedFormatsForCurrentObject () {
             if (this.currentObject instanceof CSG) {
                 return ["stl", "x3d"];
-            }
-            else if (this.currentObject instanceof CAG) {
+            } else if (this.currentObject instanceof CAG) {
                 return ["dxf"];
-            }
-            else {
+            } else {
                 throw new Error("Not supported");
             }
-        };
-        Processor.prototype.formatInfo = function (format) {
+        }
+
+        formatInfo (format) {
             return {
                 stl: {
                     displayName: "STL",
@@ -1072,27 +1222,28 @@ var OpenJsCad;
                     mimetype: "application/dxf",
                 }
             }[format];
-        };
-        Processor.prototype.downloadLinkTextForCurrentObject = function () {
+        }
+
+        downloadLinkTextForCurrentObject () {
             var ext = this.selectedFormatInfo().extension;
             return "Download " + ext.toUpperCase();
-        };
-        Processor.prototype.generateOutputFileBlobUrl = function () {
+        }
+
+        generateOutputFileBlobUrl () {
             var blob = this.currentObjectToBlob();
             var windowURL = OpenJsCad.getWindowURL();
-            this.outputFileBlobUrl = windowURL.createObjectURL(blob);
-            if (!this.outputFileBlobUrl)
-                throw new Error("createObjectURL() failed");
+            this.outputFileBlobUrl = windowURL.createObjectURL(blob)
+            if (!this.outputFileBlobUrl) throw new Error("createObjectURL() failed");
             this.hasOutputFile = true;
             this.downloadOutputFileLink.href = this.outputFileBlobUrl;
             this.downloadOutputFileLink.innerHTML = this.downloadLinkTextForCurrentObject();
             var ext = this.selectedFormatInfo().extension;
             this.downloadOutputFileLink.setAttribute("download", "openjscad." + ext);
             this.enableItems();
-            if (this.onchange)
-                this.onchange();
-        };
-        Processor.prototype.generateOutputFileFileSystem = function () {
+            if (this.onchange) this.onchange();
+        }
+
+        generateOutputFileFileSystem () {
             window.requestFileSystem = window.requestFileSystem || window.webkitRequestFileSystem;
             if (!window.requestFileSystem) {
                 throw new Error("Your browser does not support the HTML5 FileSystem API. Please try the Chrome browser instead.");
@@ -1114,20 +1265,28 @@ var OpenJsCad;
                                 that.downloadOutputFileLink.innerHTML = that.downloadLinkTextForCurrentObject();
                                 that.downloadOutputFileLink.setAttribute("download", fileEntry.name);
                                 that.enableItems();
-                                if (that.onchange)
-                                    that.onchange();
+                                if (that.onchange) that.onchange();
                             };
                             fileWriter.onerror = function (e) {
                                 throw new Error('Write failed: ' + e.toString());
                             };
                             var blob = that.currentObjectToBlob();
                             fileWriter.write(blob);
-                        }, function (fileerror) { OpenJsCad.FileSystemApiErrorHandler(fileerror, "createWriter"); });
-                    }, function (fileerror) { OpenJsCad.FileSystemApiErrorHandler(fileerror, "getFile('" + filename + "')"); });
-                }, function (fileerror) { OpenJsCad.FileSystemApiErrorHandler(fileerror, "getDirectory('" + dirname + "')"); });
-            }, function (fileerror) { OpenJsCad.FileSystemApiErrorHandler(fileerror, "requestFileSystem"); });
-        };
-        Processor.prototype.createParamControls = function () {
+                        },
+                            function (fileerror) { OpenJsCad.FileSystemApiErrorHandler(fileerror, "createWriter"); }
+                            );
+                    },
+                        function (fileerror) { OpenJsCad.FileSystemApiErrorHandler(fileerror, "getFile('" + filename + "')"); }
+                        );
+                },
+                    function (fileerror) { OpenJsCad.FileSystemApiErrorHandler(fileerror, "getDirectory('" + dirname + "')"); }
+                    );
+            },
+                function (fileerror) { OpenJsCad.FileSystemApiErrorHandler(fileerror, "requestFileSystem"); }
+                );
+        }
+
+        createParamControls () {
             this.parameterstable.innerHTML = "";
             this.paramControls = [];
             var paramControls = [];
@@ -1232,6 +1391,7 @@ var OpenJsCad;
                 if ('visible' in paramdef) {
                     tr.style.display = (paramdef.visible) ? "table-row" : "none";
                 }
+
                 td.innerHTML = label;
                 tr.appendChild(td);
                 td = document.createElement("td");
@@ -1244,12 +1404,17 @@ var OpenJsCad;
                 that.parameterstable.appendChild(tr);
             });
             this.paramControls = paramControls;
-        };
-        // default applies unless sizes specified in options
-        Processor.widthDefault = "800px";
-        Processor.heightDefault = "600px";
-        return Processor;
-    })();
-    OpenJsCad.Processor = Processor;
-})(OpenJsCad || (OpenJsCad = {}));
-//# sourceMappingURL=openjscad.js.map
+        }
+    }
+}
+
+interface Window {
+    Worker: Worker;
+    URL: URL;
+    webkitURL: URL;
+    requestFileSystem: any;
+    webkitRequestFileSystem: any;
+}
+
+declare var main;
+declare var TEMPORARY;

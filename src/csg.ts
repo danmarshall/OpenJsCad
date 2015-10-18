@@ -1,7 +1,7 @@
-/// <reference path="openjscad.ts" />
+﻿/// <reference path="openjscad.ts" />
 /*
 
-## IMPORTANT NOTE --- IMPORTANT
+## IMPORTANT NOTE --- IMPORTANT 
 The master for this file is located at:
 https://github.com/joostn/openjscad/tree/gh-pages
 That is the gh-pages branch of the joostn/openjscad project
@@ -92,117 +92,135 @@ The vertex normal has been removed since it complicates retesselation. It's not 
 for solid CAD anyway.
 
 */
-var __extends = (this && this.__extends) || function (d, b) {
-    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
-    function __() { this.constructor = d; }
-    __.prototype = b.prototype;
-    d.prototype = new __();
-};
-var CxG = (function () {
-    function CxG() {
+
+class CxG {
+    public toStlString() {
+        throw 'override';
     }
-    CxG.prototype.toStlString = function () {
+    public toStlBinary(StlBinaryOptions?) {
         throw 'override';
-    };
-    CxG.prototype.toStlBinary = function (StlBinaryOptions) {
+    }
+    public toAMFString(AMFStringOptions?) {
         throw 'override';
-    };
-    CxG.prototype.toAMFString = function (AMFStringOptions) {
+    }
+
+    public getBounds() {
         throw 'override';
-    };
-    CxG.prototype.getBounds = function () {
+    }
+
+    public transform(matrix4x4: CSG.Matrix4x4): CxG {
         throw 'override';
-    };
-    CxG.prototype.transform = function (matrix4x4) {
-        throw 'override';
-    };
-    CxG.prototype.mirrored = function (plane) {
+    }
+
+    public mirrored(plane) {
         return this.transform(CSG.Matrix4x4.mirroring(plane));
-    };
-    CxG.prototype.mirroredX = function () {
+    }
+
+    public mirroredX() {
         var plane = new CSG.Plane(CSG.Vector3D.Create(1, 0, 0), 0);
         return this.mirrored(plane);
-    };
-    CxG.prototype.mirroredY = function () {
+    }
+
+    public mirroredY() {
         var plane = new CSG.Plane(CSG.Vector3D.Create(0, 1, 0), 0);
         return this.mirrored(plane);
-    };
-    CxG.prototype.mirroredZ = function () {
+    }
+
+    public mirroredZ() {
         var plane = new CSG.Plane(CSG.Vector3D.Create(0, 0, 1), 0);
         return this.mirrored(plane);
-    };
-    CxG.prototype.translate = function (v) {
+    }
+
+    public translate(v) {
         return this.transform(CSG.Matrix4x4.translation(v));
-    };
-    CxG.prototype.scale = function (f) {
+    }
+
+    public scale(f) {
         return this.transform(CSG.Matrix4x4.scaling(f));
-    };
-    CxG.prototype.rotateX = function (deg) {
+    }
+
+    public rotateX(deg) {
         return this.transform(CSG.Matrix4x4.rotationX(deg));
-    };
-    CxG.prototype.rotateY = function (deg) {
+    }
+
+    public rotateY(deg) {
         return this.transform(CSG.Matrix4x4.rotationY(deg));
-    };
-    CxG.prototype.rotateZ = function (deg) {
+    }
+
+    public rotateZ(deg) {
         return this.transform(CSG.Matrix4x4.rotationZ(deg));
-    };
-    CxG.prototype.rotate = function (rotationCenter, rotationAxis, degrees) {
+    }
+
+    public rotate(rotationCenter, rotationAxis, degrees) {
         return this.transform(CSG.Matrix4x4.rotation(rotationCenter, rotationAxis, degrees));
-    };
-    CxG.prototype.rotateEulerAngles = function (alpha, beta, gamma, position) {
+    }
+
+    public rotateEulerAngles(alpha, beta, gamma, position) {
         position = position || [0, 0, 0];
+
         var Rz1 = CSG.Matrix4x4.rotationZ(alpha);
         var Rx = CSG.Matrix4x4.rotationX(beta);
         var Rz2 = CSG.Matrix4x4.rotationZ(gamma);
         var T = CSG.Matrix4x4.translation(new CSG.Vector3D(position));
+
         return this.transform(Rz2.multiply(Rx).multiply(Rz1).multiply(T));
-    };
-    CxG.prototype.center = function (cAxes) {
-        throw 'override';
-    };
-    return CxG;
-})();
-var CSG = (function (_super) {
-    __extends(CSG, _super);
-    function CSG() {
-        _super.apply(this, arguments);
-        this.polygons = [];
-        this.properties = new CSG.Properties();
-        this.isCanonicalized = true;
-        this.isRetesselated = true;
     }
+
+    public center(cAxes) {
+        throw 'override';
+    }
+
+}
+
+class CSG extends CxG {
+
+    public polygons: CSG.Polygon[] = [];
+    public properties = new CSG.Properties();
+    public isCanonicalized = true;
+    public isRetesselated = true;
+    public cachedBoundingBox: CSG.Vector3D[];
+
+    public static defaultResolution2D = 32;
+    public static defaultResolution3D = 12;
+
     // Construct a CSG solid from a list of `CSG.Polygon` instances.
-    CSG.fromPolygons = function (polygons) {
+    public static fromPolygons(polygons: CSG.Polygon[]) {
         var csg = new CSG();
         csg.polygons = polygons;
         csg.isCanonicalized = false;
         csg.isRetesselated = false;
         return csg;
-    };
+    }
+
     // Construct a CSG solid from generated slices.
     // Look at CSG.Polygon.prototype.solidFromSlices for details
-    CSG.fromSlices = function (options) {
+    public static fromSlices(options) {
         return (CSG.Polygon.createFromPoints([
             [0, 0, 0],
             [1, 0, 0],
             [1, 1, 0],
             [0, 1, 0]
         ])).solidFromSlices(options);
-    };
+    }
+
     // create from an untyped object with identical property names:
-    CSG.fromObject = function (obj) {
+    public static fromObject(obj) {
         var polygons = obj.polygons.map(function (p) {
             return CSG.Polygon.fromObject(p);
         });
         var csg = CSG.fromPolygons(polygons);
         csg = csg.canonicalized();
         return csg;
-    };
+    }
+
     // Reconstruct a CSG from the output of toCompactBinary()
-    CSG.fromCompactBinary = function (bin) {
-        if (bin['class'] != "CSG")
-            throw new Error("Not a CSG");
-        var planes = [], planeData = bin.planeData, numplanes = planeData.length / 4, arrayindex = 0, x, y, z, w, normal, plane;
+    public static fromCompactBinary(bin) {
+        if (bin['class'] != "CSG") throw new Error("Not a CSG");
+        var planes = [],
+            planeData = bin.planeData,
+            numplanes = planeData.length / 4,
+            arrayindex = 0,
+            x, y, z, w, normal, plane;
         for (var planeindex = 0; planeindex < numplanes; planeindex++) {
             x = planeData[arrayindex++];
             y = planeData[arrayindex++];
@@ -212,7 +230,11 @@ var CSG = (function (_super) {
             plane = new CSG.Plane(normal, w);
             planes.push(plane);
         }
-        var vertices = [], vertexData = bin.vertexData, numvertices = vertexData.length / 3, pos, vertex;
+
+        var vertices = [],
+            vertexData = bin.vertexData,
+            numvertices = vertexData.length / 3,
+            pos, vertex;
         arrayindex = 0;
         for (var vertexindex = 0; vertexindex < numvertices; vertexindex++) {
             x = vertexData[arrayindex++];
@@ -222,10 +244,18 @@ var CSG = (function (_super) {
             vertex = new CSG.Vertex(pos);
             vertices.push(vertex);
         }
+
         var shareds = bin.shared.map(function (shared) {
             return CSG.Polygon.Shared.fromObject(shared);
         });
-        var polygons = [], numpolygons = bin.numPolygons, numVerticesPerPolygon = bin.numVerticesPerPolygon, polygonVertices = bin.polygonVertices, polygonPlaneIndexes = bin.polygonPlaneIndexes, polygonSharedIndexes = bin.polygonSharedIndexes, numpolygonvertices, polygonvertices, shared, polygon; //already defined plane,
+
+        var polygons: CSG.Polygon[] = [],
+            numpolygons = bin.numPolygons,
+            numVerticesPerPolygon = bin.numVerticesPerPolygon,
+            polygonVertices = bin.polygonVertices,
+            polygonPlaneIndexes = bin.polygonPlaneIndexes,
+            polygonSharedIndexes = bin.polygonSharedIndexes,
+            numpolygonvertices, polygonvertices, shared, polygon; //already defined plane,
         arrayindex = 0;
         for (var polygonindex = 0; polygonindex < numpolygons; polygonindex++) {
             numpolygonvertices = numVerticesPerPolygon[polygonindex];
@@ -242,10 +272,12 @@ var CSG = (function (_super) {
         csg.isCanonicalized = true;
         csg.isRetesselated = true;
         return csg;
-    };
-    CSG.prototype.toPolygons = function () {
+    }
+
+    public toPolygons() {
         return this.polygons;
-    };
+    }
+
     // Return a new CSG solid representing space in either this solid or in the
     // solid `csg`. Neither this solid nor the solid `csg` are modified.
     //
@@ -260,54 +292,57 @@ var CSG = (function (_super) {
     //          |       |            |       |
     //          +-------+            +-------+
     //
-    CSG.prototype.union = function (csg) {
+    public union(csg) {
         var csgs;
         if (csg instanceof Array) {
             csgs = csg.slice(0);
             csgs.push(this);
-        }
-        else {
+        } else {
             csgs = [this, csg];
         }
+
         // combine csg pairs in a way that forms a balanced binary tree pattern
         for (var i = 1; i < csgs.length; i += 2) {
             csgs.push(csgs[i - 1].unionSub(csgs[i]));
         }
+
         return csgs[i - 1].reTesselated().canonicalized();
-    };
-    CSG.prototype.unionSub = function (csg, retesselate, canonicalize) {
+    }
+
+    public unionSub(csg, retesselate, canonicalize) {
         if (!this.mayOverlap(csg)) {
             return this.unionForNonIntersecting(csg);
-        }
-        else {
+        } else {
             var a = new CSG.Tree(this.polygons);
             var b = new CSG.Tree(csg.polygons);
             a.clipTo(b, false);
+
             // b.clipTo(a, true); // ERROR: this doesn't work
             b.clipTo(a);
             b.invert();
             b.clipTo(a);
             b.invert();
+
             var newpolygons = a.allPolygons().concat(b.allPolygons());
             var result = CSG.fromPolygons(newpolygons);
             result.properties = this.properties._merge(csg.properties);
-            if (retesselate)
-                result = result.reTesselated();
-            if (canonicalize)
-                result = result.canonicalized();
+            if (retesselate) result = result.reTesselated();
+            if (canonicalize) result = result.canonicalized();
             return result;
         }
-    };
+    }
+
     // Like union, but when we know that the two solids are not intersecting
     // Do not use if you are not completely sure that the solids do not intersect!
-    CSG.prototype.unionForNonIntersecting = function (csg) {
+    public unionForNonIntersecting(csg) {
         var newpolygons = this.polygons.concat(csg.polygons);
         var result = CSG.fromPolygons(newpolygons);
         result.properties = this.properties._merge(csg.properties);
         result.isCanonicalized = this.isCanonicalized && csg.isCanonicalized;
         result.isRetesselated = this.isRetesselated && csg.isRetesselated;
         return result;
-    };
+    }
+
     // Return a new CSG solid representing space in this solid but not in the
     // solid `csg`. Neither this solid nor the solid `csg` are modified.
     //
@@ -322,12 +357,11 @@ var CSG = (function (_super) {
     //          |       |
     //          +-------+
     //
-    CSG.prototype.subtract = function (csg) {
+    public subtract(csg) {
         var csgs;
         if (csg instanceof Array) {
             csgs = csg;
-        }
-        else {
+        } else {
             csgs = [csg];
         }
         var result = this;
@@ -336,8 +370,9 @@ var CSG = (function (_super) {
             result = result.subtractSub(csgs[i], islast, islast);
         }
         return result;
-    };
-    CSG.prototype.subtractSub = function (csg, retesselate, canonicalize) {
+    }
+
+    public subtractSub(csg, retesselate, canonicalize) {
         var a = new CSG.Tree(this.polygons);
         var b = new CSG.Tree(csg.polygons);
         a.invert();
@@ -347,12 +382,11 @@ var CSG = (function (_super) {
         a.invert();
         var result = CSG.fromPolygons(a.allPolygons());
         result.properties = this.properties._merge(csg.properties);
-        if (retesselate)
-            result = result.reTesselated();
-        if (canonicalize)
-            result = result.canonicalized();
+        if (retesselate) result = result.reTesselated();
+        if (canonicalize) result = result.canonicalized();
         return result;
-    };
+    }
+
     // Return a new CSG solid representing space both this solid and in the
     // solid `csg`. Neither this solid nor the solid `csg` are modified.
     //
@@ -367,12 +401,11 @@ var CSG = (function (_super) {
     //          |       |
     //          +-------+
     //
-    CSG.prototype.intersect = function (csg) {
+    public intersect(csg): CSG {
         var csgs;
         if (csg instanceof Array) {
             csgs = csg;
-        }
-        else {
+        } else {
             csgs = [csg];
         }
         var result = this;
@@ -381,8 +414,9 @@ var CSG = (function (_super) {
             result = result.intersectSub(csgs[i], islast, islast);
         }
         return result;
-    };
-    CSG.prototype.intersectSub = function (csg, retesselate, canonicalize) {
+    }
+
+    public intersectSub(csg, retesselate?, canonicalize?) {
         var a = new CSG.Tree(this.polygons);
         var b = new CSG.Tree(csg.polygons);
         a.invert();
@@ -394,23 +428,23 @@ var CSG = (function (_super) {
         a.invert();
         var result = CSG.fromPolygons(a.allPolygons());
         result.properties = this.properties._merge(csg.properties);
-        if (retesselate)
-            result = result.reTesselated();
-        if (canonicalize)
-            result = result.canonicalized();
+        if (retesselate) result = result.reTesselated();
+        if (canonicalize) result = result.canonicalized();
         return result;
-    };
+    }
+
     // Return a new CSG solid with solid and empty space switched. This solid is
     // not modified.
-    CSG.prototype.invert = function () {
+    public invert() {
         var flippedpolygons = this.polygons.map(function (p) {
             return p.flipped();
         });
         return CSG.fromPolygons(flippedpolygons);
         // TODO: flip properties?
-    };
+    }
+
     // Affine transformation of CSG object. Returns a new CSG object
-    CSG.prototype.transform1 = function (matrix4x4) {
+    public transform1(matrix4x4) {
         var newpolygons = this.polygons.map(function (p) {
             return p.transform(matrix4x4);
         });
@@ -418,8 +452,9 @@ var CSG = (function (_super) {
         result.properties = this.properties._transform(matrix4x4);
         result.isRetesselated = this.isRetesselated;
         return result;
-    };
-    CSG.prototype.transform = function (matrix4x4) {
+    }
+
+    public transform(matrix4x4) {
         var ismirror = matrix4x4.isMirroring();
         var transformedvertices = {};
         var transformedplanes = {};
@@ -429,8 +464,7 @@ var CSG = (function (_super) {
             var planetag = plane.getTag();
             if (planetag in transformedplanes) {
                 newplane = transformedplanes[planetag];
-            }
-            else {
+            } else {
                 newplane = plane.transform(matrix4x4);
                 transformedplanes[planetag] = newplane;
             }
@@ -439,15 +473,13 @@ var CSG = (function (_super) {
                 var vertextag = v.getTag();
                 if (vertextag in transformedvertices) {
                     newvertex = transformedvertices[vertextag];
-                }
-                else {
+                } else {
                     newvertex = v.transform(matrix4x4);
                     transformedvertices[vertextag] = newvertex;
                 }
                 return newvertex;
             });
-            if (ismirror)
-                newvertices.reverse();
+            if (ismirror) newvertices.reverse();
             return new CSG.Polygon(newvertices, p.shared, newplane);
         });
         var result = CSG.fromPolygons(newpolygons);
@@ -455,33 +487,37 @@ var CSG = (function (_super) {
         result.isRetesselated = this.isRetesselated;
         result.isCanonicalized = this.isCanonicalized;
         return result;
-    };
-    CSG.prototype.toString = function () {
+    }
+
+    public toString() {
         var result = "CSG solid:\n";
         this.polygons.map(function (p) {
             result += p.toString();
         });
         return result;
-    };
+    }
+
     // Expand the solid
     // resolution: number of points per 360 degree for the rounded corners
-    CSG.prototype.expand = function (radius, resolution) {
+    public expand(radius: number, resolution: number) {
         var result = this.expandedShell(radius, resolution, true);
         result = result.reTesselated();
         result.properties = this.properties; // keep original properties
         return result;
-    };
+    }
+
     // Contract the solid
     // resolution: number of points per 360 degree for the rounded corners
-    CSG.prototype.contract = function (radius, resolution) {
+    public contract(radius, resolution) {
         var expandedshell = this.expandedShell(radius, resolution, false);
         var result = this.subtract(expandedshell);
         result = result.reTesselated();
         result.properties = this.properties; // keep original properties
         return result;
-    };
+    }
+
     // cut the solid at a plane, and stretch the cross-section found along plane normal
-    CSG.prototype.stretchAtPlane = function (normal, point, length) {
+    public stretchAtPlane(normal, point, length) {
         var plane = CSG.Plane.fromNormalAndPoint(normal, point);
         var onb = new CSG.OrthoNormalBasis(plane);
         var crosssect = this.sectionCut(onb);
@@ -490,7 +526,8 @@ var CSG = (function (_super) {
         var piece2 = this.cutByPlane(plane.flipped());
         var result = piece1.union([midpiece, piece2.translate(plane.normal.times(length))]);
         return result;
-    };
+    }
+
     // Create the expanded shell of the solid:
     // All faces are extruded to get a thickness of 2*radius
     // Cylinders are constructed around every side
@@ -498,22 +535,23 @@ var CSG = (function (_super) {
     // unionWithThis: if true, the resulting solid will be united with 'this' solid;
     //   the result is a true expansion of the solid
     //   If false, returns only the shell
-    CSG.prototype.expandedShell = function (radius, resolution, unionWithThis) {
+    public expandedShell(radius: number, resolution: number, unionWithThis) {
         var csg = this.reTesselated();
         var result;
         if (unionWithThis) {
             result = csg;
-        }
-        else {
+        } else {
             result = new CSG();
         }
+
         // first extrude all polygons:
-        csg.polygons.map(function (polygon) {
+        csg.polygons.map(function (polygon: CSG.Polygon) {
             var extrudevector = polygon.plane.normal.unit().times(2 * radius);
             var translatedpolygon = polygon.translate(extrudevector.times(-0.5));
-            var extrudedface = translatedpolygon.extrude(extrudevector);
+            var extrudedface = (<CSG.Polygon>translatedpolygon).extrude(extrudevector);
             result = result.unionSub(extrudedface, false, false);
         });
+
         // Make a list of all unique vertex pairs (i.e. all sides of the solid)
         // For each vertex pair we collect the following:
         //   v1: first coordinate
@@ -530,15 +568,13 @@ var CSG = (function (_super) {
                 var vertextagpair;
                 if (vertextag < prevvertextag) {
                     vertextagpair = vertextag + "-" + prevvertextag;
-                }
-                else {
+                } else {
                     vertextagpair = prevvertextag + "-" + vertextag;
                 }
                 var obj;
                 if (vertextagpair in vertexpairs) {
                     obj = vertexpairs[vertextagpair];
-                }
-                else {
+                } else {
                     obj = {
                         v1: prevvertex,
                         v2: vertex,
@@ -547,10 +583,12 @@ var CSG = (function (_super) {
                     vertexpairs[vertextagpair] = obj;
                 }
                 obj.planenormals.push(polygon.plane.normal);
+
                 prevvertextag = vertextag;
                 prevvertex = vertex;
             }
         });
+
         // now construct a cylinder on every side
         // The cylinder is always an approximation of a true cylinder: it will have <resolution> polygons
         // around the sides. We will make sure though that the cylinder will have an edge at every
@@ -558,33 +596,54 @@ var CSG = (function (_super) {
         // if two edges are at, say, 10 degrees and the resolution is low.
         // Note: the result is not retesselated yet but it really should be!
         for (var vertextagpair in vertexpairs) {
-            var vertexpair = vertexpairs[vertextagpair], startpoint = vertexpair.v1.pos, endpoint = vertexpair.v2.pos, 
-            // our x,y and z vectors:
-            zbase = endpoint.minus(startpoint).unit(), xbase = vertexpair.planenormals[0].unit(), ybase = xbase.cross(zbase), 
-            // make a list of angles that the cylinder should traverse:
-            angles = [];
+            var vertexpair = vertexpairs[vertextagpair],
+                startpoint = vertexpair.v1.pos,
+                endpoint = vertexpair.v2.pos,
+                // our x,y and z vectors:
+                zbase = endpoint.minus(startpoint).unit(),
+                xbase = vertexpair.planenormals[0].unit(),
+                ybase = xbase.cross(zbase),
+
+                // make a list of angles that the cylinder should traverse:
+                angles = [];
+
             // first of all equally spaced around the cylinder:
             for (var i = 0; i < resolution; i++) {
                 angles.push(i * Math.PI * 2 / resolution);
             }
+
             // and also at every normal of all touching planes:
             for (var i = 0, iMax = vertexpair.planenormals.length; i < iMax; i++) {
-                var planenormal = vertexpair.planenormals[i], si = ybase.dot(planenormal), co = xbase.dot(planenormal), angle = Math.atan2(si, co);
-                if (angle < 0)
-                    angle += Math.PI * 2;
+                var planenormal = vertexpair.planenormals[i],
+                    si = ybase.dot(planenormal),
+                    co = xbase.dot(planenormal),
+                    angle = Math.atan2(si, co);
+
+                if (angle < 0) angle += Math.PI * 2;
                 angles.push(angle);
                 angle = Math.atan2(-si, -co);
-                if (angle < 0)
-                    angle += Math.PI * 2;
+                if (angle < 0) angle += Math.PI * 2;
                 angles.push(angle);
             }
+
             // this will result in some duplicate angles but we will get rid of those later.
             // Sort:
             angles = angles.sort(CSG.fnNumberSort);
+
             // Now construct the cylinder by traversing all angles:
-            var numangles = angles.length, prevp1, prevp2, startfacevertices = [], endfacevertices = [], polygons = [];
+            var numangles = angles.length,
+                prevp1, prevp2,
+                startfacevertices = [],
+                endfacevertices = [],
+                polygons = [];
             for (var i = -1; i < numangles; i++) {
-                var angle2 = angles[(i < 0) ? (i + numangles) : i], si2 = Math.sin(angle2), co2 = Math.cos(angle2), p = xbase.times(co2 * radius).plus(ybase.times(si2 * radius)), p1 = startpoint.plus(p), p2 = endpoint.plus(p), skip = false;
+                var angle2 = angles[(i < 0) ? (i + numangles) : i],
+                    si2 = Math.sin(angle2),
+                    co2 = Math.cos(angle2),
+                    p = xbase.times(co2 * radius).plus(ybase.times(si2 * radius)),
+                    p1 = startpoint.plus(p),
+                    p2 = endpoint.plus(p),
+                    skip = false;
                 if (i >= 0) {
                     if (p1.distanceTo(prevp1) < 1e-5) {
                         skip = true;
@@ -613,6 +672,7 @@ var CSG = (function (_super) {
             var cylinder = CSG.fromPolygons(polygons);
             result = result.unionSub(cylinder, false, false);
         }
+
         // make a list of all unique vertices
         // For each vertex we also collect the list of normals of the planes touching the vertices
         var vertexmap = {};
@@ -622,8 +682,7 @@ var CSG = (function (_super) {
                 var obj;
                 if (vertextag in vertexmap) {
                     obj = vertexmap[vertextag];
-                }
-                else {
+                } else {
                     obj = {
                         pos: vertex.pos,
                         normals: []
@@ -633,6 +692,7 @@ var CSG = (function (_super) {
                 obj.normals.push(polygon.plane.normal);
             });
         });
+
         // and build spheres at each vertex
         // We will try to set the x and z axis to the normals of 2 planes
         // This will ensure that our sphere tesselation somewhat matches 2 planes
@@ -667,13 +727,14 @@ var CSG = (function (_super) {
             });
             result = result.unionSub(sphere, false, false);
         }
+
         return result;
-    };
-    CSG.prototype.canonicalized = function () {
+    }
+
+    public canonicalized() {
         if (this.isCanonicalized) {
             return this;
-        }
-        else {
+        } else {
             var factory = new CSG.fuzzyCSGFactory();
             var result = factory.getCSG(this);
             result.isCanonicalized = true;
@@ -681,12 +742,12 @@ var CSG = (function (_super) {
             result.properties = this.properties; // keep original properties
             return result;
         }
-    };
-    CSG.prototype.reTesselated = function () {
+    }
+
+    public reTesselated() {
         if (this.isRetesselated) {
             return this;
-        }
-        else {
+        } else {
             var csg = this;
             var polygonsPerPlane = {};
             var isCanonicalized = csg.isCanonicalized;
@@ -703,8 +764,7 @@ var CSG = (function (_super) {
                 var tag = plane.getTag() + "/" + shared.getTag();
                 if (!(tag in polygonsPerPlane)) {
                     polygonsPerPlane[tag] = [polygon];
-                }
-                else {
+                } else {
                     polygonsPerPlane[tag].push(polygon);
                 }
             });
@@ -713,8 +773,7 @@ var CSG = (function (_super) {
                 var sourcepolygons = polygonsPerPlane[planetag];
                 if (sourcepolygons.length < 2) {
                     destpolygons = destpolygons.concat(sourcepolygons);
-                }
-                else {
+                } else {
                     var retesselayedpolygons = [];
                     CSG.reTesselateCoplanarPolygons(sourcepolygons, retesselayedpolygons);
                     destpolygons = destpolygons.concat(retesselayedpolygons);
@@ -726,9 +785,10 @@ var CSG = (function (_super) {
             result.properties = this.properties; // keep original properties
             return result;
         }
-    };
+    }
+
     // returns an array of two CSG.Vector3Ds (minimum coordinates and maximum coordinates)
-    CSG.prototype.getBounds = function () {
+    public getBounds() {
         if (!this.cachedBoundingBox) {
             var minpoint = new CSG.Vector3D(0, 0, 0);
             var maxpoint = new CSG.Vector3D(0, 0, 0);
@@ -740,8 +800,7 @@ var CSG = (function (_super) {
                 if (i === 0) {
                     minpoint = bounds[0];
                     maxpoint = bounds[1];
-                }
-                else {
+                } else {
                     minpoint = minpoint.min(bounds[0]);
                     maxpoint = maxpoint.max(bounds[1]);
                 }
@@ -749,33 +808,28 @@ var CSG = (function (_super) {
             this.cachedBoundingBox = [minpoint, maxpoint];
         }
         return this.cachedBoundingBox;
-    };
+    }
+
     // returns true if there is a possibility that the two solids overlap
     // returns false if we can be sure that they do not overlap
-    CSG.prototype.mayOverlap = function (csg) {
+    public mayOverlap(csg) {
         if ((this.polygons.length === 0) || (csg.polygons.length === 0)) {
             return false;
-        }
-        else {
+        } else {
             var mybounds = this.getBounds();
             var otherbounds = csg.getBounds();
-            if (mybounds[1].x < otherbounds[0].x)
-                return false;
-            if (mybounds[0].x > otherbounds[1].x)
-                return false;
-            if (mybounds[1].y < otherbounds[0].y)
-                return false;
-            if (mybounds[0].y > otherbounds[1].y)
-                return false;
-            if (mybounds[1].z < otherbounds[0].z)
-                return false;
-            if (mybounds[0].z > otherbounds[1].z)
-                return false;
+            if (mybounds[1].x < otherbounds[0].x) return false;
+            if (mybounds[0].x > otherbounds[1].x) return false;
+            if (mybounds[1].y < otherbounds[0].y) return false;
+            if (mybounds[0].y > otherbounds[1].y) return false;
+            if (mybounds[1].z < otherbounds[0].z) return false;
+            if (mybounds[0].z > otherbounds[1].z) return false;
             return true;
         }
-    };
+    }
+
     // Cut the solid by a plane. Returns the solid on the back side of the plane
-    CSG.prototype.cutByPlane = function (plane) {
+    public cutByPlane(plane): CSG {
         if (this.polygons.length === 0) {
             return new CSG();
         }
@@ -789,8 +843,7 @@ var CSG = (function (_super) {
         this.polygons.map(function (polygon) {
             polygon.vertices.map(function (vertex) {
                 var distance = vertex.pos.distanceToSquared(planecenter);
-                if (distance > maxdistance)
-                    maxdistance = distance;
+                if (distance > maxdistance) maxdistance = distance;
             });
         });
         maxdistance = Math.sqrt(maxdistance);
@@ -803,13 +856,16 @@ var CSG = (function (_super) {
         vertices.push(new CSG.Vertex(orthobasis.to3D(new CSG.Vector2D(-maxdistance, maxdistance))));
         vertices.push(new CSG.Vertex(orthobasis.to3D(new CSG.Vector2D(maxdistance, maxdistance))));
         var polygon = new CSG.Polygon(vertices, null, plane.flipped());
+
         // and extrude the polygon into a cube, backwards of the plane:
         var cube = polygon.extrude(plane.normal.times(-maxdistance));
+
         // Now we can do the intersection:
         var result = this.intersect(cube);
         result.properties = this.properties; // keep original properties
         return result;
-    };
+    }
+
     // Connect a solid to another solid, such that two CSG.Connectors become connected
     //   myConnector: a CSG.Connector of this solid
     //   otherConnector: a CSG.Connector to which myConnector should be connected
@@ -817,13 +873,14 @@ var CSG = (function (_super) {
     //           true: the 'axis' vectors of the connectors should point in opposite direction
     //   normalrotation: degrees of rotation between the 'normal' vectors of the two
     //                   connectors
-    CSG.prototype.connectTo = function (myConnector, otherConnector, mirror, normalrotation) {
+    public connectTo(myConnector, otherConnector, mirror, normalrotation) {
         var matrix = myConnector.getTransformationTo(otherConnector, mirror, normalrotation);
         return this.transform(matrix);
-    };
+    }
+
     // set the .shared property of all polygons
     // Returns a new CSG solid, the original is unmodified!
-    CSG.prototype.setShared = function (shared) {
+    public setShared(shared) {
         var polygons = this.polygons.map(function (p) {
             return new CSG.Polygon(p.vertices, shared, p.plane);
         });
@@ -832,13 +889,27 @@ var CSG = (function (_super) {
         result.isRetesselated = this.isRetesselated;
         result.isCanonicalized = this.isCanonicalized;
         return result;
-    };
-    CSG.prototype.setColor = function (args) {
+    }
+
+    public setColor(args) {
         var newshared = CSG.Polygon.Shared.fromColor.apply(this, arguments);
         return this.setShared(newshared);
-    };
-    CSG.prototype.toCompactBinary = function () {
-        var csg = this.canonicalized(), numpolygons = csg.polygons.length, numpolygonvertices = 0, numvertices = 0, vertexmap = {}, vertices = [], numplanes = 0, planemap = {}, polygonindex = 0, planes = [], shareds = [], sharedmap = {}, numshared = 0;
+    }
+
+    public toCompactBinary() {
+        var csg = this.canonicalized(),
+            numpolygons = csg.polygons.length,
+            numpolygonvertices = 0,
+            numvertices = 0,
+            vertexmap = {},
+            vertices = <CSG.Vertex[]>[],
+            numplanes = 0,
+            planemap = {},
+            polygonindex = 0,
+            planes = <CSG.Plane[]>[],
+            shareds = <CSG.Polygon.Shared[]>[],
+            sharedmap = {},
+            numshared = 0;
         // for (var i = 0, iMax = csg.polygons.length; i < iMax; i++) {
         //  var p = csg.polygons[i];
         //  for (var j = 0, jMax = p.length; j < jMax; j++) {
@@ -850,7 +921,7 @@ var CSG = (function (_super) {
         //      }
         //  }
         csg.polygons.map(function (p) {
-            p.vertices.map(function (v) {
+            p.vertices.map(function (v: CSG.Vertex) {
                 ++numpolygonvertices;
                 var vertextag = v.getTag();
                 if (!(vertextag in vertexmap)) {
@@ -858,6 +929,7 @@ var CSG = (function (_super) {
                     vertices.push(v);
                 }
             });
+
             var planetag = p.plane.getTag();
             if (!(planetag in planemap)) {
                 planemap[planetag] = numplanes++;
@@ -869,7 +941,13 @@ var CSG = (function (_super) {
                 shareds.push(p.shared);
             }
         });
-        var numVerticesPerPolygon = new Uint32Array(numpolygons), polygonSharedIndexes = new Uint32Array(numpolygons), polygonVertices = new Uint32Array(numpolygonvertices), polygonPlaneIndexes = new Uint32Array(numpolygons), vertexData = new Float64Array(numvertices * 3), planeData = new Float64Array(numplanes * 4), polygonVerticesIndex = 0;
+        var numVerticesPerPolygon = new Uint32Array(numpolygons),
+            polygonSharedIndexes = new Uint32Array(numpolygons),
+            polygonVertices = new Uint32Array(numpolygonvertices),
+            polygonPlaneIndexes = new Uint32Array(numpolygons),
+            vertexData = new Float64Array(numvertices * 3),
+            planeData = new Float64Array(numplanes * 4),
+            polygonVerticesIndex = 0;
         for (var polygonindex = 0; polygonindex < numpolygons; ++polygonindex) {
             var p = csg.polygons[polygonindex];
             numVerticesPerPolygon[polygonindex] = p.vertices.length;
@@ -886,14 +964,14 @@ var CSG = (function (_super) {
             polygonSharedIndexes[polygonindex] = sharedindex;
         }
         var verticesArrayIndex = 0;
-        vertices.map(function (v) {
+        vertices.map(function (v: CSG.Vertex) {
             var pos = v.pos;
             vertexData[verticesArrayIndex++] = pos.x;
             vertexData[verticesArrayIndex++] = pos.y;
             vertexData[verticesArrayIndex++] = pos.z;
         });
         var planesArrayIndex = 0;
-        planes.map(function (p) {
+        planes.map(function (p: CSG.Plane) {
             var normal = p.normal;
             planeData[planesArrayIndex++] = normal.x;
             planeData[planesArrayIndex++] = normal.y;
@@ -912,12 +990,15 @@ var CSG = (function (_super) {
             shared: shareds
         };
         return result;
-    };
+    }
+
     // For debugging
     // Creates a new solid with a tiny cube at every vertex of the source solid
-    CSG.prototype.toPointCloud = function (cuberadius) {
+    public toPointCloud(cuberadius) {
         var csg = this.reTesselated();
+
         var result = new CSG();
+
         // make a list of all unique vertices
         // For each vertex we also collect the list of normals of the planes touching the vertices
         var vertexmap = {};
@@ -926,6 +1007,7 @@ var CSG = (function (_super) {
                 vertexmap[vertex.getTag()] = vertex.pos;
             });
         });
+
         for (var vertextag in vertexmap) {
             var pos = vertexmap[vertextag];
             var cube = CSG.cube({
@@ -936,15 +1018,15 @@ var CSG = (function (_super) {
         }
         result = result.reTesselated();
         return result;
-    };
+    }
+
     // Get the transformation that transforms this CSG such that it is lying on the z=0 plane,
     // as flat as possible (i.e. the least z-height).
     // So that it is in an orientation suitable for CNC milling
-    CSG.prototype.getTransformationAndInverseTransformationToFlatLying = function () {
+    public getTransformationAndInverseTransformationToFlatLying(): any {
         if (this.polygons.length === 0) {
             return new CSG.Matrix4x4(); // unity
-        }
-        else {
+        } else {
             // get a list of unique planes in the CSG:
             var csg = this.canonicalized();
             var planemap = {};
@@ -978,8 +1060,7 @@ var CSG = (function (_super) {
                     var planeconnector = new CSG.Connector(pointonplane, plane.normal, xvector);
                     transformation = planeconnector.getTransformationTo(z0connectorx, false, 0);
                     inversetransformation = z0connectorx.getTransformationTo(planeconnector, false, 0);
-                }
-                else {
+                } else {
                     // y is better:
                     var planeconnector = new CSG.Connector(pointonplane, plane.normal, yvector);
                     transformation = planeconnector.getTransformationTo(z0connectory, false, 0);
@@ -993,10 +1074,8 @@ var CSG = (function (_super) {
                 if (!isbetter) {
                     if (zheight < minheight) {
                         isbetter = true;
-                    }
-                    else if (zheight == minheight) {
-                        if (dotz > maxdotz)
-                            isbetter = true;
+                    } else if (zheight == minheight) {
+                        if (dotz > maxdotz) isbetter = true;
                     }
                 }
                 if (isbetter) {
@@ -1013,19 +1092,22 @@ var CSG = (function (_super) {
             }
             return [besttransformation, bestinversetransformation];
         }
-    };
-    CSG.prototype.getTransformationToFlatLying = function () {
+    }
+
+    public getTransformationToFlatLying() {
         var result = this.getTransformationAndInverseTransformationToFlatLying();
         return result[0];
-    };
-    CSG.prototype.lieFlat = function () {
+    }
+
+    public lieFlat() {
         var transformation = this.getTransformationToFlatLying();
         return this.transform(transformation);
-    };
+    }
+
     // project the 3D CSG onto a plane
     // This returns a 2D CAG with the 'shadow' shape of the 3D solid when projected onto the
     // plane represented by the orthonormal basis
-    CSG.prototype.projectToOrthoNormalBasis = function (orthobasis) {
+    public projectToOrthoNormalBasis(orthobasis) {
         var EPS = 1e-5;
         var cags = [];
         this.polygons.filter(function (p) {
@@ -1033,15 +1115,16 @@ var CSG = (function (_super) {
             return p.plane.normal.minus(orthobasis.plane.normal).lengthSquared() < EPS * EPS;
         })
             .map(function (polygon) {
-            var cag = polygon.projectToOrthoNormalBasis(orthobasis);
-            if (cag.sides.length > 0) {
-                cags.push(cag);
-            }
-        });
+                var cag = polygon.projectToOrthoNormalBasis(orthobasis);
+                if (cag.sides.length > 0) {
+                    cags.push(cag);
+                }
+            });
         var result = new CAG().union(cags);
         return result;
-    };
-    CSG.prototype.sectionCut = function (orthobasis) {
+    }
+
+    public sectionCut(orthobasis) {
         var EPS = 1e-5;
         var plane1 = orthobasis.plane;
         var plane2 = orthobasis.plane.flipped();
@@ -1050,7 +1133,8 @@ var CSG = (function (_super) {
         var cut3d = this.cutByPlane(plane1);
         cut3d = cut3d.cutByPlane(plane2);
         return cut3d.projectToOrthoNormalBasis(orthobasis);
-    };
+    }
+
     /*
         fixTJunctions:
 
@@ -1071,19 +1155,19 @@ var CSG = (function (_super) {
         Note that this can create polygons that are slightly non-convex (due to rounding errors). Therefore the result should
         not be used for further CSG operations!
         */
-    CSG.prototype.fixTJunctions = function () {
+    public fixTJunctions() {
         var csg = this.canonicalized();
         var sidemap = {};
         for (var polygonindex = 0; polygonindex < csg.polygons.length; polygonindex++) {
             var polygon = csg.polygons[polygonindex];
             var numvertices = polygon.vertices.length;
-            if (numvertices >= 3) {
+            if (numvertices >= 3) // should be true
+            {
                 var vertex = polygon.vertices[0];
                 var vertextag = vertex.getTag();
                 for (var vertexindex = 0; vertexindex < numvertices; vertexindex++) {
                     var nextvertexindex = vertexindex + 1;
-                    if (nextvertexindex == numvertices)
-                        nextvertexindex = 0;
+                    if (nextvertexindex == numvertices) nextvertexindex = 0;
                     var nextvertex = polygon.vertices[nextvertexindex];
                     var nextvertextag = nextvertex.getTag();
                     var sidetag = vertextag + "/" + nextvertextag;
@@ -1095,8 +1179,7 @@ var CSG = (function (_super) {
                         if (ar.length === 0) {
                             delete sidemap[reversesidetag];
                         }
-                    }
-                    else {
+                    } else {
                         var sideobj = {
                             vertex0: vertex,
                             vertex1: nextvertex,
@@ -1104,8 +1187,7 @@ var CSG = (function (_super) {
                         };
                         if (!(sidetag in sidemap)) {
                             sidemap[sidetag] = [sideobj];
-                        }
-                        else {
+                        } else {
                             sidemap[sidetag].push(sideobj);
                         }
                     }
@@ -1129,26 +1211,25 @@ var CSG = (function (_super) {
                 var endtag = sideobj.vertex1.getTag();
                 if (starttag in vertextag2sidestart) {
                     vertextag2sidestart[starttag].push(sidetag);
-                }
-                else {
+                } else {
                     vertextag2sidestart[starttag] = [sidetag];
                 }
                 if (endtag in vertextag2sideend) {
                     vertextag2sideend[endtag].push(sidetag);
-                }
-                else {
+                } else {
                     vertextag2sideend[endtag] = [sidetag];
                 }
             });
         }
+
         if (!sidemapisempty) {
             // make a copy of the polygons array, since we are going to modify it:
             var polygons = csg.polygons.slice(0);
+
             function addSide(vertex0, vertex1, polygonindex) {
                 var starttag = vertex0.getTag();
                 var endtag = vertex1.getTag();
-                if (starttag == endtag)
-                    throw new Error("Assertion failed");
+                if (starttag == endtag) throw new Error("Assertion failed");
                 var newsidetag = starttag + "/" + endtag;
                 var reversesidetag = endtag + "/" + starttag;
                 if (reversesidetag in sidemap) {
@@ -1166,67 +1247,61 @@ var CSG = (function (_super) {
                 };
                 if (!(newsidetag in sidemap)) {
                     sidemap[newsidetag] = [newsideobj];
-                }
-                else {
+                } else {
                     sidemap[newsidetag].push(newsideobj);
                 }
                 if (starttag in vertextag2sidestart) {
                     vertextag2sidestart[starttag].push(newsidetag);
-                }
-                else {
+                } else {
                     vertextag2sidestart[starttag] = [newsidetag];
                 }
                 if (endtag in vertextag2sideend) {
                     vertextag2sideend[endtag].push(newsidetag);
-                }
-                else {
+                } else {
                     vertextag2sideend[endtag] = [newsidetag];
                 }
                 return newsidetag;
             }
+
             function deleteSide(vertex0, vertex1, polygonindex) {
                 var starttag = vertex0.getTag();
                 var endtag = vertex1.getTag();
                 var sidetag = starttag + "/" + endtag;
                 // console.log("deleteSide("+sidetag+")");
-                if (!(sidetag in sidemap))
-                    throw new Error("Assertion failed");
+                if (!(sidetag in sidemap)) throw new Error("Assertion failed");
                 var idx = -1;
                 var sideobjs = sidemap[sidetag];
                 for (var i = 0; i < sideobjs.length; i++) {
                     var sideobj = sideobjs[i];
-                    if (sideobj.vertex0 != vertex0)
-                        continue;
-                    if (sideobj.vertex1 != vertex1)
-                        continue;
+                    if (sideobj.vertex0 != vertex0) continue;
+                    if (sideobj.vertex1 != vertex1) continue;
                     if (polygonindex !== null) {
-                        if (sideobj.polygonindex != polygonindex)
-                            continue;
+                        if (sideobj.polygonindex != polygonindex) continue;
                     }
                     idx = i;
                     break;
                 }
-                if (idx < 0)
-                    throw new Error("Assertion failed");
+                if (idx < 0) throw new Error("Assertion failed");
                 sideobjs.splice(idx, 1);
                 if (sideobjs.length === 0) {
                     delete sidemap[sidetag];
                 }
                 idx = vertextag2sidestart[starttag].indexOf(sidetag);
-                if (idx < 0)
-                    throw new Error("Assertion failed");
+                if (idx < 0) throw new Error("Assertion failed");
                 vertextag2sidestart[starttag].splice(idx, 1);
                 if (vertextag2sidestart[starttag].length === 0) {
                     delete vertextag2sidestart[starttag];
                 }
+
                 idx = vertextag2sideend[endtag].indexOf(sidetag);
-                if (idx < 0)
-                    throw new Error("Assertion failed");
+                if (idx < 0) throw new Error("Assertion failed");
                 vertextag2sideend[endtag].splice(idx, 1);
                 if (vertextag2sideend[endtag].length === 0) {
                     delete vertextag2sideend[endtag];
                 }
             }
+
+
             while (true) {
                 var sidemapisempty = true;
                 for (var sidetag3 in sidemap) {
@@ -1234,8 +1309,7 @@ var CSG = (function (_super) {
                     sidemapisempty = false;
                     sidestocheck[sidetag] = true;
                 }
-                if (sidemapisempty)
-                    break;
+                if (sidemapisempty) break;
                 var donesomething = false;
                 while (true) {
                     var sidetagtocheck = null;
@@ -1244,13 +1318,11 @@ var CSG = (function (_super) {
                         sidetagtocheck = sidetag;
                         break;
                     }
-                    if (sidetagtocheck === null)
-                        break; // sidestocheck is empty, we're done!
+                    if (sidetagtocheck === null) break; // sidestocheck is empty, we're done!
                     var donewithside = true;
                     if (sidetagtocheck in sidemap) {
                         var sideobjs = sidemap[sidetagtocheck];
-                        if (sideobjs.length === 0)
-                            throw new Error("Assertion failed");
+                        if (sideobjs.length === 0) throw new Error("Assertion failed");
                         var sideobj2 = sideobjs[0];
                         for (var directionindex = 0; directionindex < 2; directionindex++) {
                             var startvertex = (directionindex === 0) ? sideobj2.vertex0 : sideobj2.vertex1;
@@ -1262,8 +1334,7 @@ var CSG = (function (_super) {
                                 if (startvertextag in vertextag2sideend) {
                                     matchingsides = vertextag2sideend[startvertextag];
                                 }
-                            }
-                            else {
+                            } else {
                                 if (startvertextag in vertextag2sidestart) {
                                     matchingsides = vertextag2sidestart[startvertextag];
                                 }
@@ -1275,8 +1346,7 @@ var CSG = (function (_super) {
                                 var matchingsideendvertex = (directionindex === 0) ? matchingside.vertex1 : matchingside.vertex0;
                                 var matchingsidestartvertextag = matchingsidestartvertex.getTag();
                                 var matchingsideendvertextag = matchingsideendvertex.getTag();
-                                if (matchingsideendvertextag != startvertextag)
-                                    throw new Error("Assertion failed");
+                                if (matchingsideendvertextag != startvertextag) throw new Error("Assertion failed");
                                 if (matchingsidestartvertextag == endvertextag) {
                                     // matchingside cancels sidetagtocheck
                                     deleteSide(startvertex, endvertex, null);
@@ -1285,8 +1355,7 @@ var CSG = (function (_super) {
                                     directionindex = 2; // skip reverse direction check
                                     donesomething = true;
                                     break;
-                                }
-                                else {
+                                } else {
                                     var startpos = startvertex.pos;
                                     var endpos = endvertex.pos;
                                     var checkpos = matchingsidestartvertex.pos;
@@ -1309,22 +1378,20 @@ var CSG = (function (_super) {
                                                     break;
                                                 }
                                             }
-                                            if (insertionvertextagindex < 0)
-                                                throw new Error("Assertion failed");
+                                            if (insertionvertextagindex < 0) throw new Error("Assertion failed");
                                             // split the side by inserting the vertex:
                                             var newvertices = polygon.vertices.slice(0);
                                             newvertices.splice(insertionvertextagindex, 0, endvertex);
                                             var newpolygon = new CSG.Polygon(newvertices, polygon.shared /*polygon.plane*/);
                                             polygons[polygonindex] = newpolygon;
+
                                             // remove the original sides from our maps:
                                             // deleteSide(sideobj.vertex0, sideobj.vertex1, null);
                                             deleteSide(matchingside.vertex0, matchingside.vertex1, polygonindex);
                                             var newsidetag1 = addSide(matchingside.vertex0, endvertex, polygonindex);
                                             var newsidetag2 = addSide(endvertex, matchingside.vertex1, polygonindex);
-                                            if (newsidetag1 !== null)
-                                                sidestocheck[newsidetag1] = true;
-                                            if (newsidetag2 !== null)
-                                                sidestocheck[newsidetag2] = true;
+                                            if (newsidetag1 !== null) sidestocheck[newsidetag1] = true;
+                                            if (newsidetag2 !== null) sidestocheck[newsidetag2] = true;
                                             donewithside = false;
                                             directionindex = 2; // skip reverse direction check
                                             donesomething = true;
@@ -1339,8 +1406,7 @@ var CSG = (function (_super) {
                         delete sidestocheck[sidetag];
                     }
                 }
-                if (!donesomething)
-                    break;
+                if (!donesomething) break;
             }
             var newcsg = CSG.fromPolygons(polygons);
             newcsg.properties = csg.properties;
@@ -1358,22 +1424,25 @@ var CSG = (function (_super) {
             OpenJsCad.log("!sidemapisempty");
         }
         return csg;
-    };
-    CSG.prototype.toTriangles = function () {
+    }
+
+    public toTriangles() {
         var polygons = [];
         this.polygons.forEach(function (poly) {
             var firstVertex = poly.vertices[0];
             for (var i = poly.vertices.length - 3; i >= 0; i--) {
                 polygons.push(new CSG.Polygon([
                     firstVertex, poly.vertices[i + 1], poly.vertices[i + 2]
-                ], poly.shared, poly.plane));
+                ],
+                    poly.shared, poly.plane));
             }
         });
         return polygons;
-    };
+    }
+
     // features: string, or array containing 1 or more strings of: 'volume', 'area'
     // more could be added here (Fourier coeff, moments)
-    CSG.prototype.getFeatures = function (features) {
+    public getFeatures(features) {
         if (!(features instanceof Array)) {
             features = [features];
         }
@@ -1381,13 +1450,14 @@ var CSG = (function (_super) {
             return triPoly.getTetraFeatures(features);
         })
             .reduce(function (pv, v) {
-            return v.map(function (feat, i) {
-                return feat + (pv === 0 ? 0 : pv[i]);
-            });
-        }, 0);
+                return v.map(function (feat, i) {
+                    return feat + (pv === 0 ? 0 : pv[i]);
+                });
+            }, 0);
         return (result.length == 1) ? result[0] : result;
-    };
-    CSG.prototype.center = function (cAxes) {
+    }
+
+    public center(cAxes) {
         var axes = ['x', 'y', 'z'];
         cAxes = Array.prototype.map.call(arguments, function (a) {
             return a.toLowerCase();
@@ -1401,38 +1471,48 @@ var CSG = (function (_super) {
             return cAxes.indexOf(a) > -1 ?
                 -(b[0][a] + b[1][a]) / 2 : 0;
         }));
-    };
+    }
+
     ////formats
-    CSG.prototype.toX3D = function () {
+    public toX3D() {
         // materialPolygonLists
         // key: a color string (e.g. "0 1 1" for yellow)
         // value: an array of strings specifying polygons of this color
         //        (as space-separated indices into vertexCoords)
-        var materialPolygonLists = {}, 
-        // list of coordinates (as "x y z" strings)
-        vertexCoords = [], 
-        // map to look up the index in vertexCoords of a given vertex
-        vertexTagToCoordIndexMap = {};
+        var materialPolygonLists = {},
+            // list of coordinates (as "x y z" strings)
+            vertexCoords = [],
+            // map to look up the index in vertexCoords of a given vertex
+            vertexTagToCoordIndexMap = {};
+
         this.polygons.map(function (p) {
-            var red = 0, green = 0, blue = 1; // default color is blue
+            var red = 0,
+                green = 0,
+                blue = 1; // default color is blue
             if (p.shared && p.shared.color) {
                 red = p.shared.color[0];
                 green = p.shared.color[1];
                 blue = p.shared.color[2];
             }
-            var polygonVertexIndices = [], numvertices = p.vertices.length;
-            var vertex;
+
+            var polygonVertexIndices = [],
+                numvertices = p.vertices.length;
+            var vertex: CSG.Vertex;
+
             for (var i = 0; i < numvertices; i++) {
                 vertex = p.vertices[i];
                 if (!(vertex.getTag() in vertexTagToCoordIndexMap)) {
                     vertexCoords.push(vertex.pos.x.toString() + " " +
                         vertex.pos.y.toString() + " " +
-                        vertex.pos.z.toString());
+                        vertex.pos.z.toString()
+                        );
                     vertexTagToCoordIndexMap[vertex.getTag()] = vertexCoords.length - 1;
                 }
                 polygonVertexIndices.push(vertexTagToCoordIndexMap[vertex.getTag()]);
             }
+
             var polygonString = polygonVertexIndices.join(" ");
+
             var colorString = red.toString() + " " + green.toString() + " " + blue.toString();
             if (!(colorString in materialPolygonLists)) {
                 materialPolygonLists[colorString] = [];
@@ -1440,17 +1520,25 @@ var CSG = (function (_super) {
             // add this polygonString to the list of colorString-colored polygons
             materialPolygonLists[colorString].push(polygonString);
         });
+
+
         // create output document
-        var docType = document.implementation.createDocumentType("X3D", 'ISO//Web3D//DTD X3D 3.1//EN" "http://www.web3d.org/specifications/x3d-3.1.dtd', null);
+        var docType = document.implementation.createDocumentType("X3D",
+            'ISO//Web3D//DTD X3D 3.1//EN" "http://www.web3d.org/specifications/x3d-3.1.dtd', null);
         var exportDoc = document.implementation.createDocument(null, "X3D", docType);
-        exportDoc.insertBefore(exportDoc.createProcessingInstruction('xml', 'version="1.0" encoding="UTF-8"'), exportDoc.doctype);
+        exportDoc.insertBefore(
+            exportDoc.createProcessingInstruction('xml', 'version="1.0" encoding="UTF-8"'),
+            exportDoc.doctype);
+
         var exportRoot = exportDoc.getElementsByTagName("X3D")[0];
         //exportRoot.setAttribute("profile", "Interchange");
         //exportRoot.setAttribute("version", "3.1");
         //exportRoot.setAttribute("xsd:noNamespaceSchemaLocation", "http://www.web3d.org/specifications/x3d-3.1.xsd");
         //exportRoot.setAttribute("xmlns:xsd", "http://www.w3.org/2001/XMLSchema-instance");
+
         var exportScene = exportDoc.createElement("Scene");
         exportRoot.appendChild(exportScene);
+
         /*
             For each color, create a shape made of an appropriately colored
             material which contains all polygons that are this color.
@@ -1464,37 +1552,43 @@ var CSG = (function (_super) {
             var polygonList = materialPolygonLists[colorString];
             var shape = exportDoc.createElement("Shape");
             exportScene.appendChild(shape);
+
             var appearance = exportDoc.createElement("Appearance");
             shape.appendChild(appearance);
+
             var material = exportDoc.createElement("Material");
             appearance.appendChild(material);
             material.setAttribute("diffuseColor", colorString);
             material.setAttribute("ambientIntensity", "1.0");
+
             var ifs = exportDoc.createElement("IndexedFaceSet");
             shape.appendChild(ifs);
             ifs.setAttribute("solid", "true");
             ifs.setAttribute("coordIndex", polygonList.join(" -1 ") + " -1");
+
             var coordinate = exportDoc.createElement("Coordinate");
             ifs.appendChild(coordinate);
             if (coordsMeshDefined) {
                 coordinate.setAttribute("USE", "coords_mesh");
-            }
-            else {
+            } else {
                 coordinate.setAttribute("DEF", "coords_mesh");
                 coordinate.setAttribute("point", vertexCoords.join(" "));
                 coordsMeshDefined = true;
             }
         }
+
         var x3dstring = (new XMLSerializer()).serializeToString(exportDoc);
         return new Blob([x3dstring], {
             type: "model/x3d+xml"
         });
-    };
+    }
+
     ////////////////////////////////////////////
     // STL Binary Export
     ////////////////////////////////////////////
+
     // see http://en.wikipedia.org/wiki/STL_%28file_format%29#Binary_STL
-    CSG.prototype.toStlBinary = function () {
+    public toStlBinary() {
         // first check if the host is little-endian:
         var buffer = new ArrayBuffer(4);
         var int32buffer = new Int32Array(buffer, 0, 1);
@@ -1503,6 +1597,7 @@ var CSG = (function (_super) {
         if (int8buffer[0] != 0x44) {
             throw new Error("Binary STL output is currently only supported on little-endian (Intel) processors");
         }
+
         var numtriangles = 0;
         this.polygons.map(function (p) {
             var numvertices = p.vertices.length;
@@ -1552,11 +1647,13 @@ var CSG = (function (_super) {
         return new Blob([headerarray.buffer, ar1.buffer, allTrianglesBuffer], {
             type: "application/sla"
         });
-    };
+    }
+
     ////////////////////////////////////////////
     // STL String Export
     ////////////////////////////////////////////
-    CSG.prototype.toStlString = function () {
+
+    public toStlString() {
         var result = "solid csg.js\n";
         this.polygons.map(function (p) {
             result += p.toStlString();
@@ -1565,21 +1662,24 @@ var CSG = (function (_super) {
         return new Blob([result], {
             type: "application/sla"
         });
-    };
-    CSG.prototype.toAMFString = function (m) {
+    }
+
+    public toAMFString(m) {
         var result = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<amf" + (m && m.unit ? " unit=\"+m.unit\"" : "") + ">\n";
         for (var k in m) {
             result += "<metadata type=\"" + k + "\">" + m[k] + "</metadata>\n";
         }
         result += "<object id=\"0\">\n<mesh>\n<vertices>\n";
-        this.polygons.map(function (p) {
+
+        this.polygons.map(function (p) {                  // first we dump all vertices of all polygons
             for (var i = 0; i < p.vertices.length; i++) {
                 result += p.vertices[i].toAMFString();
             }
         });
         result += "</vertices>\n";
+
         var n = 0;
-        this.polygons.map(function (p) {
+        this.polygons.map(function (p) {                  // then we dump all polygons
             result += "<volume>\n";
             if (p.vertices.length < 3)
                 return;
@@ -1590,9 +1690,16 @@ var CSG = (function (_super) {
                 b = p.shared.color[2];
                 a = p.shared.color[3];
                 colorSet = true;
+                //} else if (p.color) {
+                //    r = p.color[0];
+                //    g = p.color[1];
+                //    b = p.color[2];
+                //    if (p.color.length() > 3) a = p.color[3];
+                //    colorSet = true;
             }
             result += "<color><r>" + r + "</r><g>" + g + "</g><b>" + b + "</b>" + (a !== undefined ? "<a>" + a + "</a>" : "") + "</color>";
-            for (var i = 0; i < p.vertices.length - 2; i++) {
+
+            for (var i = 0; i < p.vertices.length - 2; i++) {      // making sure they are all triangles (triangular polygons)
                 result += "<triangle>";
                 result += "<v1>" + (n) + "</v1>";
                 result += "<v2>" + (n + i + 1) + "</v2>";
@@ -1607,20 +1714,18 @@ var CSG = (function (_super) {
         return new Blob([result], {
             type: "application/amf+xml"
         });
-    };
-    CSG.defaultResolution2D = 32;
-    CSG.defaultResolution3D = 12;
-    return CSG;
-})(CxG);
-var CSG;
-(function (CSG) {
-    function fnNumberSort(a, b) {
+    }
+}
+
+module CSG {
+
+    export function fnNumberSort(a, b) {
         return a - b;
     }
-    CSG.fnNumberSort = fnNumberSort;
+
     // Parse an option from the options object
     // If the option is not present, return the default value
-    function parseOption(options, optionname, defaultvalue) {
+    export function parseOption(options, optionname, defaultvalue) {
         var result = defaultvalue;
         if (options) {
             if (optionname in options) {
@@ -1629,31 +1734,31 @@ var CSG;
         }
         return result;
     }
-    CSG.parseOption = parseOption;
+
     // Parse an option and force into a CSG.Vector3D. If a scalar is passed it is converted
     // into a vector with equal x,y,z
-    function parseOptionAs3DVector(options, optionname, defaultvalue) {
+    export function parseOptionAs3DVector(options, optionname, defaultvalue) {
         var result1 = CSG.parseOption(options, optionname, defaultvalue);
         var result = new CSG.Vector3D(result1);
         return result;
     }
-    CSG.parseOptionAs3DVector = parseOptionAs3DVector;
-    function parseOptionAs3DVectorList(options, optionname, defaultvalue) {
+
+    export function parseOptionAs3DVectorList(options, optionname, defaultvalue) {
         var result = CSG.parseOption(options, optionname, defaultvalue);
         return result.map(function (res) {
             return new CSG.Vector3D(res);
         });
     }
-    CSG.parseOptionAs3DVectorList = parseOptionAs3DVectorList;
+
     // Parse an option and force into a CSG.Vector2D. If a scalar is passed it is converted
     // into a vector with equal x,y
-    function parseOptionAs2DVector(options, optionname, defaultvalue) {
+    export function parseOptionAs2DVector(options, optionname, defaultvalue) {
         var result = CSG.parseOption(options, optionname, defaultvalue);
         result = new CSG.Vector2D(result);
         return result;
     }
-    CSG.parseOptionAs2DVector = parseOptionAs2DVector;
-    function parseOptionAsFloat(options, optionname, defaultvalue) {
+
+    export function parseOptionAsFloat(options, optionname, defaultvalue) {
         var result = CSG.parseOption(options, optionname, defaultvalue);
         if (typeof (result) == "string") {
             result = Number(result);
@@ -1663,8 +1768,8 @@ var CSG;
         }
         return result;
     }
-    CSG.parseOptionAsFloat = parseOptionAsFloat;
-    function parseOptionAsInt(options, optionname, defaultvalue) {
+
+    export function parseOptionAsInt(options, optionname, defaultvalue) {
         var result = CSG.parseOption(options, optionname, defaultvalue);
         result = Number(Math.floor(result));
         if (isNaN(result)) {
@@ -1672,21 +1777,18 @@ var CSG;
         }
         return result;
     }
-    CSG.parseOptionAsInt = parseOptionAsInt;
-    function parseOptionAsBool(options, optionname, defaultvalue) {
+
+    export function parseOptionAsBool(options, optionname, defaultvalue) {
         var result = CSG.parseOption(options, optionname, defaultvalue);
         if (typeof (result) == "string") {
-            if (result == "true")
-                result = true;
-            else if (result == "false")
-                result = false;
-            else if (result == 0)
-                result = false;
+            if (result == "true") result = true;
+            else if (result == "false") result = false;
+            else if (result == 0) result = false;
         }
         result = !!result;
         return result;
     }
-    CSG.parseOptionAsBool = parseOptionAsBool;
+
     // Construct an axis-aligned solid cuboid.
     // Parameters:
     //   center: center of cube (default [0,0,0])
@@ -1698,19 +1800,18 @@ var CSG;
     //       center: [0, 0, 0],
     //       radius: 1
     //     });
-    function cube(options) {
+    export function cube(options) {
         var c, r;
         options = options || {};
         if (('corner1' in options) || ('corner2' in options)) {
             if (('center' in options) || ('radius' in options)) {
-                throw new Error("cube: should either give a radius and center parameter, or a corner1 and corner2 parameter");
+                throw new Error("cube: should either give a radius and center parameter, or a corner1 and corner2 parameter")
             }
             var corner1 = CSG.parseOptionAs3DVector(options, "corner1", [0, 0, 0]);
             var corner2 = CSG.parseOptionAs3DVector(options, "corner2", [1, 1, 1]);
             c = corner1.plus(corner2).times(0.5);
             r = corner2.minus(corner1).times(0.5);
-        }
-        else {
+        } else {
             c = CSG.parseOptionAs3DVector(options, "center", [0, 0, 0]);
             r = CSG.parseOptionAs3DVector(options, "radius", [1, 1, 1]);
         }
@@ -1744,7 +1845,8 @@ var CSG;
             //var normal = new CSG.Vector3D(info[1]);
             //var plane = new CSG.Plane(normal, 1);
             var vertices = info[0].map(function (i) {
-                var pos = new CSG.Vector3D(c.x + r.x * (2 * (i & 1) - 1), c.y + r.y * (2 * (i & 2) - 1), c.z + r.z * (2 * (i & 4) - 1));
+                var pos = new CSG.Vector3D(
+                    c.x + r.x * (2 * (i & 1) - 1), c.y + r.y * (2 * (i & 2) - 1), c.z + r.z * (2 * (i & 4) - 1));
                 return new CSG.Vertex(pos);
             });
             return new CSG.Polygon(vertices, null /* , plane */);
@@ -1762,7 +1864,7 @@ var CSG;
         ];
         return result;
     }
-    CSG.cube = cube;
+
     // Construct a solid sphere
     //
     // Parameters:
@@ -1778,7 +1880,7 @@ var CSG;
     //       radius: 2,
     //       resolution: 32,
     //     });
-    function sphere(options) {
+    export function sphere(options) {
         options = options || {};
         var center = CSG.parseOptionAs3DVector(options, "center", [0, 0, 0]);
         var radius = CSG.parseOptionAsFloat(options, "radius", 1);
@@ -1788,14 +1890,12 @@ var CSG;
             xvector = options.axes[0].unit().times(radius);
             yvector = options.axes[1].unit().times(radius);
             zvector = options.axes[2].unit().times(radius);
-        }
-        else {
+        } else {
             xvector = new CSG.Vector3D([1, 0, 0]).times(radius);
             yvector = new CSG.Vector3D([0, -1, 0]).times(radius);
             zvector = new CSG.Vector3D([0, 0, 1]).times(radius);
         }
-        if (resolution < 4)
-            resolution = 4;
+        if (resolution < 4) resolution = 4;
         var qresolution = Math.round(resolution / 4);
         var prevcylinderpoint;
         var polygons = [];
@@ -1841,7 +1941,7 @@ var CSG;
         result.properties.sphere.facepoint = center.plus(xvector);
         return result;
     }
-    CSG.sphere = sphere;
+
     // Construct a solid cylinder.
     //
     // Parameters:
@@ -1858,7 +1958,7 @@ var CSG;
     //       radius: 1,
     //       resolution: 16
     //     });
-    function cylinder(options) {
+    export function cylinder(options) {
         var s = CSG.parseOptionAs3DVector(options, "start", [0, -1, 0]);
         var e = CSG.parseOptionAs3DVector(options, "end", [0, 1, 0]);
         var r = CSG.parseOptionAsFloat(options, "radius", 1);
@@ -1866,21 +1966,25 @@ var CSG;
         var rStart = CSG.parseOptionAsFloat(options, "radiusStart", r);
         var alpha = CSG.parseOptionAsFloat(options, "sectorAngle", 360);
         alpha = alpha > 360 ? alpha % 360 : alpha;
+
         if ((rEnd < 0) || (rStart < 0)) {
             throw new Error("Radius should be non-negative");
         }
         if ((rEnd === 0) && (rStart === 0)) {
             throw new Error("Either radiusStart or radiusEnd should be positive");
         }
+
         var slices = CSG.parseOptionAsInt(options, "resolution", CSG.defaultResolution2D);
         var ray = e.minus(s);
         var axisZ = ray.unit(); //, isY = (Math.abs(axisZ.y) > 0.5);
         var axisX = axisZ.randomNonParallelVector().unit();
+
         //  var axisX = new CSG.Vector3D(isY, !isY, 0).cross(axisZ).unit();
         var axisY = axisX.cross(axisZ).unit();
         var start = new CSG.Vertex(s);
         var end = new CSG.Vertex(e);
         var polygons = [];
+
         function point(stack, slice, radius) {
             var angle = slice * Math.PI * alpha / 180;
             var out = axisX.times(Math.cos(angle)).plus(axisY.times(Math.sin(angle)));
@@ -1889,13 +1993,13 @@ var CSG;
         }
         if (alpha > 0) {
             for (var i = 0; i < slices; i++) {
-                var t0 = i / slices, t1 = (i + 1) / slices;
+                var t0 = i / slices,
+                    t1 = (i + 1) / slices;
                 if (rEnd == rStart) {
                     polygons.push(new CSG.Polygon([start, point(0, t0, rEnd), point(0, t1, rEnd)]));
                     polygons.push(new CSG.Polygon([point(0, t1, rEnd), point(0, t0, rEnd), point(1, t0, rEnd), point(1, t1, rEnd)]));
                     polygons.push(new CSG.Polygon([end, point(1, t1, rEnd), point(1, t0, rEnd)]));
-                }
-                else {
+                } else {
                     if (rStart > 0) {
                         polygons.push(new CSG.Polygon([start, point(0, t0, rStart), point(0, t1, rStart)]));
                         polygons.push(new CSG.Polygon([point(0, t0, rStart), point(1, t0, rEnd), point(0, t1, rStart)]));
@@ -1919,14 +2023,14 @@ var CSG;
         result.properties.cylinder.end = new CSG.Connector(e, axisZ, axisX);
         var cylCenter = s.plus(ray.times(0.5));
         var fptVec1 = axisX.rotate(s, axisZ, -alpha / 2);
-        var fptVec = fptVec1.times((rStart + rEnd) / 2);
+        var fptVec = (<Vector3D>fptVec1).times((rStart + rEnd) / 2);
         var fptVec90 = fptVec.cross(axisZ);
         // note this one is NOT a face normal for a cone. - It's horizontal from cyl perspective
         result.properties.cylinder.facepointH = new CSG.Connector(cylCenter.plus(fptVec), fptVec, axisZ);
         result.properties.cylinder.facepointH90 = new CSG.Connector(cylCenter.plus(fptVec90), fptVec90, axisZ);
         return result;
     }
-    CSG.cylinder = cylinder;
+
     // Like a cylinder, but with rounded ends instead of flat
     //
     // Parameters:
@@ -1944,7 +2048,7 @@ var CSG;
     //       radius: 1,
     //       resolution: 16
     //     });
-    function roundedCylinder(options) {
+    export function roundedCylinder(options) {
         var p1 = CSG.parseOptionAs3DVector(options, "start", [0, -1, 0]);
         var p2 = CSG.parseOptionAs3DVector(options, "end", [0, 1, 0]);
         var radius = CSG.parseOptionAsFloat(options, "radius", 1);
@@ -1952,14 +2056,12 @@ var CSG;
         var defaultnormal;
         if (Math.abs(direction.x) > Math.abs(direction.y)) {
             defaultnormal = new CSG.Vector3D(0, 1, 0);
-        }
-        else {
+        } else {
             defaultnormal = new CSG.Vector3D(1, 0, 0);
         }
         var normal = CSG.parseOptionAs3DVector(options, "normal", defaultnormal);
         var resolution = CSG.parseOptionAsInt(options, "resolution", CSG.defaultResolution3D);
-        if (resolution < 4)
-            resolution = 4;
+        if (resolution < 4) resolution = 4;
         var polygons = [];
         var qresolution = Math.floor(0.25 * resolution);
         var length = direction.length();
@@ -2025,7 +2127,7 @@ var CSG;
         result.properties.roundedCylinder.facepoint = p1.plus(xvector);
         return result;
     }
-    CSG.roundedCylinder = roundedCylinder;
+
     // Construct an axis-aligned solid rounded cuboid.
     // Parameters:
     //   center: center of cube (default [0,0,0])
@@ -2041,7 +2143,7 @@ var CSG;
     //       roundradius: 0.2,
     //       resolution: 8,
     //     });
-    function roundedCube(options) {
+    export function roundedCube(options) {
         var EPS = 1e-5;
         var minRR = 1e-2; //minroundradius 1e-3 gives rounding errors already
         var center, cuberadius;
@@ -2054,17 +2156,14 @@ var CSG;
             var corner2 = CSG.parseOptionAs3DVector(options, "corner2", [1, 1, 1]);
             center = corner1.plus(corner2).times(0.5);
             cuberadius = corner2.minus(corner1).times(0.5);
-        }
-        else {
+        } else {
             center = CSG.parseOptionAs3DVector(options, "center", [0, 0, 0]);
             cuberadius = CSG.parseOptionAs3DVector(options, "radius", [1, 1, 1]);
         }
         cuberadius = cuberadius.abs(); // negative radii make no sense
         var resolution = CSG.parseOptionAsInt(options, "resolution", CSG.defaultResolution3D);
-        if (resolution < 4)
-            resolution = 4;
-        if (resolution % 2 == 1 && resolution < 8)
-            resolution = 8; // avoid ugly
+        if (resolution < 4) resolution = 4;
+        if (resolution % 2 == 1 && resolution < 8) resolution = 8; // avoid ugly
         var roundradius = CSG.parseOptionAs3DVector(options, "roundradius", [0.2, 0.2, 0.2]);
         // slight hack for now - total radius stays ok
         roundradius = CSG.Vector3D.Create(Math.max(roundradius.x, minRR), Math.max(roundradius.y, minRR), Math.max(roundradius.z, minRR));
@@ -2073,11 +2172,11 @@ var CSG;
             throw ('roundradius <= radius!');
         }
         var res = CSG.sphere({ radius: 1, resolution: resolution });
-        res = res.scale(roundradius);
+        res = <CSG>res.scale(roundradius);
         innerradius.x > EPS && (res = res.stretchAtPlane([1, 0, 0], [0, 0, 0], 2 * innerradius.x));
         innerradius.y > EPS && (res = res.stretchAtPlane([0, 1, 0], [0, 0, 0], 2 * innerradius.y));
         innerradius.z > EPS && (res = res.stretchAtPlane([0, 0, 1], [0, 0, 0], 2 * innerradius.z));
-        res = res.translate([-innerradius.x + center.x, -innerradius.y + center.y, -innerradius.z + center.z]);
+        res = <CSG>res.translate([-innerradius.x + center.x, -innerradius.y + center.y, -innerradius.z + center.z]);
         res = res.reTesselated();
         res.properties.roundedCube = new CSG.Properties();
         res.properties.roundedCube.center = new CSG.Vertex(center);
@@ -2091,11 +2190,11 @@ var CSG;
         ];
         return res;
     }
-    CSG.roundedCube = roundedCube;
+
     /**
      * polyhedron accepts openscad style arguments. I.e. define face vertices clockwise looking from outside
      */
-    function polyhedron(options) {
+    export function polyhedron(options) {
         options = options || {};
         if (('points' in options) !== ('faces' in options)) {
             throw new Error("polyhedron needs 'points' and 'faces' arrays");
@@ -2108,8 +2207,8 @@ var CSG;
             [0, 0, 1]
         ])
             .map(function (pt) {
-            return new CSG.Vertex(pt);
-        });
+                return new CSG.Vertex(pt);
+            });
         var faces = CSG.parseOption(options, "faces", [
             [0, 1, 4],
             [1, 2, 4],
@@ -2127,21 +2226,22 @@ var CSG;
                 return vertices[idx];
             }));
         });
+
         // TODO: facecenters as connectors? probably overkill. Maybe centroid
         // the re-tesselation here happens because it's so easy for a user to
         // create parametrized polyhedrons that end up with 1-2 dimensional polygons.
         // These will create infinite loops at CSG.Tree()
         return CSG.fromPolygons(polygons).reTesselated();
     }
-    CSG.polyhedron = polyhedron;
-    function IsFloat(n) {
+
+    export function IsFloat(n) {
         return (!isNaN(n)) || (n === Infinity) || (n === -Infinity);
     }
-    CSG.IsFloat = IsFloat;
+
     // solve 2x2 linear equation:
     // [ab][x] = [u]
     // [cd][y]   [v]
-    function solve2Linear(a, b, c, d, u, v) {
+    export function solve2Linear(a, b, c, d, u, v) {
         var det = a * d - b * c;
         var invdet = 1.0 / det;
         var x = u * d - b * v;
@@ -2150,7 +2250,7 @@ var CSG;
         y *= invdet;
         return [x, y];
     }
-    CSG.solve2Linear = solve2Linear;
+
     // # class Vector3D
     // Represents a 3D vector.
     //
@@ -2161,256 +2261,296 @@ var CSG;
     //     new CSG.Vector3D({ x: 1, y: 2, z: 3 });
     //     new CSG.Vector3D(1, 2); // assumes z=0
     //     new CSG.Vector3D([1, 2]); // assumes z=0
-    var Vector3D = (function (_super) {
-        __extends(Vector3D, _super);
-        function Vector3D(x, y, z) {
-            _super.call(this);
+    export class Vector3D extends CxG {
+
+        public x: number;
+        public y: number;
+        public z: number;
+
+        constructor(v3: Vector3D);
+        constructor(v2: Vector2D);
+        constructor(v2: number[]);
+        constructor(x: number, y: number);
+        constructor(x: number, y: number, z: number);
+        constructor(x?: any, y?: any, z?: any) {
+            super();
             if (arguments.length == 3) {
                 this.x = parseFloat(x);
                 this.y = parseFloat(y);
                 this.z = parseFloat(z);
-            }
-            else if (arguments.length == 2) {
+            } else if (arguments.length == 2) {
                 this.x = parseFloat(x);
                 this.y = parseFloat(y);
                 this.z = 0;
-            }
-            else {
+            } else {
                 var ok = true;
                 if (arguments.length == 1) {
                     if (typeof (x) == "object") {
                         if (x instanceof CSG.Vector3D) {
-                            var v3 = x;
+                            var v3 = <Vector3D>x;
                             this.x = v3.x;
                             this.y = v3.y;
                             this.z = v3.z;
-                        }
-                        else if (x instanceof CSG.Vector2D) {
-                            var v2 = x;
+                        } else if (x instanceof CSG.Vector2D) {
+                            var v2 = <Vector2D>x;
                             this.x = v2.x;
                             this.y = v2.y;
                             this.z = 0;
-                        }
-                        else if (x instanceof Array) {
+                        } else if (x instanceof Array) {
                             if ((x.length < 2) || (x.length > 3)) {
                                 ok = false;
-                            }
-                            else {
+                            } else {
                                 this.x = parseFloat(x[0]);
                                 this.y = parseFloat(x[1]);
                                 if (x.length == 3) {
                                     this.z = parseFloat(x[2]);
-                                }
-                                else {
+                                } else {
                                     this.z = 0;
                                 }
                             }
-                        }
-                        else if (('x' in x) && ('y' in x)) {
+                        } else if (('x' in x) && ('y' in x)) {
                             this.x = parseFloat(x.x);
                             this.y = parseFloat(x.y);
                             if ('z' in x) {
                                 this.z = parseFloat(x.z);
-                            }
-                            else {
+                            } else {
                                 this.z = 0;
                             }
-                        }
-                        else
-                            ok = false;
-                    }
-                    else {
+                        } else ok = false;
+                    } else {
                         var v = parseFloat(x);
                         this.x = v;
                         this.y = v;
                         this.z = v;
                     }
-                }
-                else
-                    ok = false;
+                } else ok = false;
                 if (ok) {
-                    if ((!CSG.IsFloat(this.x)) || (!CSG.IsFloat(this.y)) || (!CSG.IsFloat(this.z)))
-                        ok = false;
+                    if ((!CSG.IsFloat(this.x)) || (!CSG.IsFloat(this.y)) || (!CSG.IsFloat(this.z))) ok = false;
                 }
                 if (!ok) {
                     throw new Error("wrong arguments");
                 }
             }
         }
+    
+
         // This does the same as new CSG.Vector3D(x,y,z) but it doesn't go through the constructor
         // and the parameters are not validated. Is much faster.
-        Vector3D.Create = function (x, y, z) {
-            var result = Object.create(CSG.Vector3D.prototype);
+        public static Create(x, y, z): Vector3D {
+            var result = <Vector3D>Object.create(CSG.Vector3D.prototype);
             result.x = x;
             result.y = y;
             result.z = z;
             return result;
-        };
-        Vector3D.prototype.clone = function () {
+        }
+
+
+        public clone() {
             return CSG.Vector3D.Create(this.x, this.y, this.z);
-        };
-        Vector3D.prototype.negated = function () {
+        }
+
+        public negated() {
             return CSG.Vector3D.Create(-this.x, -this.y, -this.z);
-        };
-        Vector3D.prototype.abs = function () {
+        }
+
+        public abs() {
             return CSG.Vector3D.Create(Math.abs(this.x), Math.abs(this.y), Math.abs(this.z));
-        };
-        Vector3D.prototype.plus = function (a) {
+        }
+
+        public plus(a: Vector3D) {
             return CSG.Vector3D.Create(this.x + a.x, this.y + a.y, this.z + a.z);
-        };
-        Vector3D.prototype.minus = function (a) {
+        }
+
+        public minus(a: Vector3D) {
             return CSG.Vector3D.Create(this.x - a.x, this.y - a.y, this.z - a.z);
-        };
-        Vector3D.prototype.times = function (a) {
+        }
+
+        public times(a) {
             return CSG.Vector3D.Create(this.x * a, this.y * a, this.z * a);
-        };
-        Vector3D.prototype.dividedBy = function (a) {
+        }
+
+        public dividedBy(a) {
             return CSG.Vector3D.Create(this.x / a, this.y / a, this.z / a);
-        };
-        Vector3D.prototype.dot = function (a) {
+        }
+
+        public dot(a: Vector3D) {
             return this.x * a.x + this.y * a.y + this.z * a.z;
-        };
-        Vector3D.prototype.lerp = function (a, t) {
+        }
+
+        public lerp(a: Vector3D, t) {
             return this.plus(a.minus(this).times(t));
-        };
-        Vector3D.prototype.lengthSquared = function () {
+        }
+
+        public lengthSquared() {
             return this.dot(this);
-        };
-        Vector3D.prototype.length = function () {
+        }
+
+        public length() {
             return Math.sqrt(this.lengthSquared());
-        };
-        Vector3D.prototype.unit = function () {
+        }
+
+        public unit() {
             return this.dividedBy(this.length());
-        };
-        Vector3D.prototype.cross = function (a) {
-            return CSG.Vector3D.Create(this.y * a.z - this.z * a.y, this.z * a.x - this.x * a.z, this.x * a.y - this.y * a.x);
-        };
-        Vector3D.prototype.distanceTo = function (a) {
+        }
+
+        public cross(a: Vector3D) {
+            return CSG.Vector3D.Create(
+                this.y * a.z - this.z * a.y, this.z * a.x - this.x * a.z, this.x * a.y - this.y * a.x);
+        }
+
+        public distanceTo(a) {
             return this.minus(a).length();
-        };
-        Vector3D.prototype.distanceToSquared = function (a) {
+        }
+
+        public distanceToSquared(a) {
             return this.minus(a).lengthSquared();
-        };
-        Vector3D.prototype.equals = function (a) {
+        }
+
+        public equals(a: Vector3D) {
             return (this.x == a.x) && (this.y == a.y) && (this.z == a.z);
-        };
+        }
+
         // Right multiply by a 4x4 matrix (the vector is interpreted as a row vector)
         // Returns a new CSG.Vector3D
-        Vector3D.prototype.multiply4x4 = function (matrix4x4) {
+        public multiply4x4(matrix4x4) {
             return matrix4x4.leftMultiply1x3Vector(this);
-        };
-        Vector3D.prototype.transform = function (matrix4x4) {
+        }
+
+        public transform(matrix4x4) {
             return matrix4x4.leftMultiply1x3Vector(this);
-        };
-        Vector3D.prototype.toString = function () {
+        }
+
+        public toString() {
             return "(" + this.x.toFixed(2) + ", " + this.y.toFixed(2) + ", " + this.z.toFixed(2) + ")";
-        };
+        }
+
         // find a vector that is somewhat perpendicular to this one
-        Vector3D.prototype.randomNonParallelVector = function () {
+        public randomNonParallelVector() {
             var abs = this.abs();
             if ((abs.x <= abs.y) && (abs.x <= abs.z)) {
                 return CSG.Vector3D.Create(1, 0, 0);
-            }
-            else if ((abs.y <= abs.x) && (abs.y <= abs.z)) {
+            } else if ((abs.y <= abs.x) && (abs.y <= abs.z)) {
                 return CSG.Vector3D.Create(0, 1, 0);
-            }
-            else {
+            } else {
                 return CSG.Vector3D.Create(0, 0, 1);
             }
-        };
-        Vector3D.prototype.min = function (p) {
-            return CSG.Vector3D.Create(Math.min(this.x, p.x), Math.min(this.y, p.y), Math.min(this.z, p.z));
-        };
-        Vector3D.prototype.max = function (p) {
-            return CSG.Vector3D.Create(Math.max(this.x, p.x), Math.max(this.y, p.y), Math.max(this.z, p.z));
-        };
+        }
+
+        public min(p: Vector3D) {
+            return CSG.Vector3D.Create(
+                Math.min(this.x, p.x), Math.min(this.y, p.y), Math.min(this.z, p.z));
+        }
+
+        public max(p: Vector3D) {
+            return CSG.Vector3D.Create(
+                Math.max(this.x, p.x), Math.max(this.y, p.y), Math.max(this.z, p.z));
+        }
+
         ///formats
-        Vector3D.prototype.toStlString = function () {
+
+        public toStlString() {
             return this.x + " " + this.y + " " + this.z;
-        };
-        Vector3D.prototype.toAMFString = function () {
+        }
+
+        public toAMFString() {
             return "<x>" + this.x + "</x><y>" + this.y + "</y><z>" + this.z + "</z>";
-        };
-        return Vector3D;
-    })(CxG);
-    CSG.Vector3D = Vector3D;
+        }
+    }
+
     // # class Vertex
     // Represents a vertex of a polygon. Use your own vertex class instead of this
     // one to provide additional features like texture coordinates and vertex
     // colors. Custom vertex classes need to provide a `pos` property
     // `flipped()`, and `interpolate()` methods that behave analogous to the ones
     // defined by `CSG.Vertex`.
-    var Vertex = (function (_super) {
-        __extends(Vertex, _super);
-        function Vertex(pos) {
-            _super.call(this);
-            this.pos = pos;
+    export class Vertex extends CxG {
+
+        public tag: number;
+
+        constructor(public pos: Vector3D) {
+            super();
         }
+
         // create from an untyped object with identical property names:
-        Vertex.fromObject = function (obj) {
+        public static fromObject(obj) {
             var pos = new CSG.Vector3D(obj.pos);
             return new CSG.Vertex(pos);
-        };
+        }
+
+    
         // Return a vertex with all orientation-specific data (e.g. vertex normal) flipped. Called when the
         // orientation of a polygon is flipped.
-        Vertex.prototype.flipped = function () {
+        public flipped() {
             return this;
-        };
-        Vertex.prototype.getTag = function () {
+        }
+
+        public getTag() {
             var result = this.tag;
             if (!result) {
                 result = CSG.getTag();
                 this.tag = result;
             }
             return result;
-        };
+        }
+
         // Create a new vertex between this vertex and `other` by linearly
         // interpolating all properties using a parameter of `t`. Subclasses should
         // override this to interpolate additional properties.
-        Vertex.prototype.interpolate = function (other, t) {
+        public interpolate(other, t) {
             var newpos = this.pos.lerp(other.pos, t);
             return new CSG.Vertex(newpos);
-        };
+        }
+
         // Affine transformation of vertex. Returns a new CSG.Vertex
-        Vertex.prototype.transform = function (matrix4x4) {
+        public transform(matrix4x4) {
             var newpos = this.pos.multiply4x4(matrix4x4);
             return new CSG.Vertex(newpos);
-        };
-        Vertex.prototype.toString = function () {
+        }
+
+        public toString() {
             return this.pos.toString();
-        };
+        }
         //formats
-        Vertex.prototype.toStlString = function () {
+
+        public toStlString() {
             return "vertex " + this.pos.toStlString() + "\n";
-        };
-        Vertex.prototype.toAMFString = function () {
+        }
+
+        public toAMFString() {
             return "<vertex><coordinates>" + this.pos.toAMFString() + "</coordinates></vertex>\n";
-        };
-        return Vertex;
-    })(CxG);
-    CSG.Vertex = Vertex;
+        }
+
+    }
+
     // # class Plane
     // Represents a plane in 3D space.
-    var Plane = (function (_super) {
-        __extends(Plane, _super);
-        function Plane(normal, w) {
-            _super.call(this);
-            this.normal = normal;
-            this.w = w;
+    export class Plane extends CxG {
+
+        public tag: number;
+
+        constructor(public normal: Vector3D, public w: number) {
+            super();
         }
+
         // create from an untyped object with identical property names:
-        Plane.fromObject = function (obj) {
+        public static fromObject(obj) {
             var normal = new CSG.Vector3D(obj.normal);
             var w = parseFloat(obj.w);
             return new CSG.Plane(normal, w);
-        };
-        Plane.fromVector3Ds = function (a, b, c) {
+        }
+
+        // `CSG.Plane.EPSILON` is the tolerance used by `splitPolygon()` to decide if a
+        // point is on the plane.
+        public static EPSILON = 1e-5;
+
+        public static fromVector3Ds(a, b, c) {
             var n = b.minus(a).cross(c.minus(a)).unit();
             return new CSG.Plane(n, n.dot(a));
-        };
+        }
+
         // like fromVector3Ds, but allow the vectors to be on one point or one line
         // in such a case a random plane through the given points is constructed
-        Plane.anyPlaneFromVector3Ds = function (a, b, c) {
+        public static anyPlaneFromVector3Ds(a, b, c) {
             var v1 = b.minus(a);
             var v2 = c.minus(a);
             if (v1.length() < 1e-5) {
@@ -2427,35 +2567,42 @@ var CSG;
             }
             normal = normal.unit();
             return new CSG.Plane(normal, normal.dot(a));
-        };
-        Plane.fromPoints = function (a, b, c) {
+        }
+
+        public static fromPoints(a, b, c) {
             a = new CSG.Vector3D(a);
             b = new CSG.Vector3D(b);
             c = new CSG.Vector3D(c);
             return CSG.Plane.fromVector3Ds(a, b, c);
-        };
-        Plane.fromNormalAndPoint = function (normal, point) {
+        }
+
+        public static fromNormalAndPoint(normal, point) {
             normal = new CSG.Vector3D(normal);
             point = new CSG.Vector3D(point);
             normal = normal.unit();
             var w = point.dot(normal);
             return new CSG.Plane(normal, w);
-        };
-        Plane.prototype.flipped = function () {
+        }
+
+
+        public flipped() {
             return new CSG.Plane(this.normal.negated(), -this.w);
-        };
-        Plane.prototype.getTag = function () {
+        }
+
+        public getTag() {
             var result = this.tag;
             if (!result) {
                 result = CSG.getTag();
                 this.tag = result;
             }
             return result;
-        };
-        Plane.prototype.equals = function (n) {
+        }
+
+        public equals(n) {
             return this.normal.equals(n.normal) && this.w == n.w;
-        };
-        Plane.prototype.transform = function (matrix4x4) {
+        }
+
+        public transform(matrix4x4) {
             var ismirror = matrix4x4.isMirroring();
             // get two vectors in the plane:
             var r = this.normal.randomNonParallelVector();
@@ -2477,7 +2624,8 @@ var CSG;
                 newplane = newplane.flipped();
             }
             return newplane;
-        };
+        }
+
         // Returns object:
         // .type:
         //   0: coplanar-front
@@ -2488,7 +2636,7 @@ var CSG;
         // In case the polygon is spanning, returns:
         // .front: a CSG.Polygon of the front part
         // .back: a CSG.Polygon of the back part
-        Plane.prototype.splitPolygon = function (polygon) {
+        public splitPolygon(polygon) {
             var result = {
                 type: null,
                 front: null,
@@ -2500,8 +2648,7 @@ var CSG;
             var numvertices = vertices.length;
             if (polygon.plane.equals(this)) {
                 result.type = 0;
-            }
-            else {
+            } else {
                 var EPS = CSG.Plane.EPSILON;
                 var thisw = this.w;
                 var hasfront = false;
@@ -2512,43 +2659,36 @@ var CSG;
                     var t = planenormal.dot(vertices[i].pos) - thisw;
                     var isback = (t < 0);
                     vertexIsBack.push(isback);
-                    if (t > EPS)
-                        hasfront = true;
-                    if (t < MINEPS)
-                        hasback = true;
+                    if (t > EPS) hasfront = true;
+                    if (t < MINEPS) hasback = true;
                 }
                 if ((!hasfront) && (!hasback)) {
                     // all points coplanar
                     var t = planenormal.dot(polygon.plane.normal);
                     result.type = (t >= 0) ? 0 : 1;
-                }
-                else if (!hasback) {
+                } else if (!hasback) {
                     result.type = 2;
-                }
-                else if (!hasfront) {
+                } else if (!hasfront) {
                     result.type = 3;
-                }
-                else {
+                } else {
                     // spanning
                     result.type = 4;
-                    var frontvertices = [], backvertices = [];
+                    var frontvertices = [],
+                        backvertices = [];
                     var isback2 = vertexIsBack[0];
                     for (var vertexindex = 0; vertexindex < numvertices; vertexindex++) {
                         var vertex = vertices[vertexindex];
                         var nextvertexindex = vertexindex + 1;
-                        if (nextvertexindex >= numvertices)
-                            nextvertexindex = 0;
+                        if (nextvertexindex >= numvertices) nextvertexindex = 0;
                         var nextisback = vertexIsBack[nextvertexindex];
                         if (isback2 == nextisback) {
                             // line segment is on one side of the plane:
                             if (isback2) {
                                 backvertices.push(vertex);
-                            }
-                            else {
+                            } else {
                                 frontvertices.push(vertex);
                             }
-                        }
-                        else {
+                        } else {
                             // line segment intersects plane:
                             var point = vertex.pos;
                             var nextpoint = vertices[nextvertexindex].pos;
@@ -2558,8 +2698,7 @@ var CSG;
                                 backvertices.push(vertex);
                                 backvertices.push(intersectionvertex);
                                 frontvertices.push(intersectionvertex);
-                            }
-                            else {
+                            } else {
                                 frontvertices.push(vertex);
                                 frontvertices.push(intersectionvertex);
                                 backvertices.push(intersectionvertex);
@@ -2600,47 +2739,48 @@ var CSG;
                 }
             }
             return result;
-        };
+        }
+
         // robust splitting of a line by a plane
         // will work even if the line is parallel to the plane
-        Plane.prototype.splitLineBetweenPoints = function (p1, p2) {
+        public splitLineBetweenPoints(p1, p2) {
             var direction = p2.minus(p1);
             var labda = (this.w - this.normal.dot(p1)) / this.normal.dot(direction);
-            if (isNaN(labda))
-                labda = 0;
-            if (labda > 1)
-                labda = 1;
-            if (labda < 0)
-                labda = 0;
+            if (isNaN(labda)) labda = 0;
+            if (labda > 1) labda = 1;
+            if (labda < 0) labda = 0;
             var result = p1.plus(direction.times(labda));
             return result;
-        };
+        }
+
         // returns CSG.Vector3D
-        Plane.prototype.intersectWithLine = function (line3d) {
+        public intersectWithLine(line3d) {
             return line3d.intersectWithPlane(this);
-        };
+        }
+
         // intersection of two planes
-        Plane.prototype.intersectWithPlane = function (plane) {
+        public intersectWithPlane(plane) {
             return CSG.Line3D.fromPlanes(this, plane);
-        };
-        Plane.prototype.signedDistanceToPoint = function (point) {
+        }
+
+        public signedDistanceToPoint(point) {
             var t = this.normal.dot(point) - this.w;
             return t;
-        };
-        Plane.prototype.toString = function () {
+        }
+
+        public toString() {
             return "[normal: " + this.normal.toString() + ", w: " + this.w + "]";
-        };
-        Plane.prototype.mirrorPoint = function (point3d) {
+        }
+
+        public mirrorPoint(point3d) {
             var distance = this.signedDistanceToPoint(point3d);
             var mirrored = point3d.minus(this.normal.times(distance * 2.0));
             return mirrored;
-        };
-        // `CSG.Plane.EPSILON` is the tolerance used by `splitPolygon()` to decide if a
-        // point is on the plane.
-        Plane.EPSILON = 1e-5;
-        return Plane;
-    })(CxG);
-    CSG.Plane = Plane;
+        }
+
+    }
+
+
     // # class Polygon
     // Represents a convex polygon. The vertices used to initialize a polygon must
     // be coplanar and form a convex loop. They do not have to be `CSG.Vertex`
@@ -2654,47 +2794,61 @@ var CSG;
     // The plane of the polygon is calculated from the vertex coordinates
     // To avoid unnecessary recalculation, the plane can alternatively be
     // passed as the third argument
-    var Polygon = (function (_super) {
-        __extends(Polygon, _super);
-        function Polygon(vertices, shared, plane) {
-            _super.call(this);
+    export class Polygon extends CxG {
+
+        public vertices: Vertex[];
+        public shared: Polygon.Shared;
+        public plane: Plane;
+        public cachedBoundingSphere;
+        public cachedBoundingBox;
+
+        public static defaultShared: CSG.Polygon.Shared;
+
+        constructor(vertices: Vector3D, shared?: Polygon.Shared, plane?: Plane);
+        constructor(vertices: Vertex[], shared?: Polygon.Shared, plane?: Plane);
+        constructor(vertices?: any, shared?: Polygon.Shared, plane?: Plane) {
+            super();
             this.vertices = vertices;
-            if (!shared)
-                shared = CSG.Polygon.defaultShared;
+            if (!shared) shared = CSG.Polygon.defaultShared;
             this.shared = shared;
             //var numvertices = vertices.length;
+
             if (arguments.length >= 3) {
                 this.plane = plane;
-            }
-            else {
+            } else {
                 this.plane = CSG.Plane.fromVector3Ds(vertices[0].pos, vertices[1].pos, vertices[2].pos);
             }
+
             if (false) {
                 this.checkIfConvex();
             }
         }
+
         // create from an untyped object with identical property names:
-        Polygon.fromObject = function (obj) {
+        public static fromObject(obj) {
             var vertices = obj.vertices.map(function (v) {
                 return CSG.Vertex.fromObject(v);
             });
             var shared = CSG.Polygon.Shared.fromObject(obj.shared);
             var plane = CSG.Plane.fromObject(obj.plane);
             return new CSG.Polygon(vertices, shared, plane);
-        };
+        }
+
         // check whether the polygon is convex (it should be, otherwise we will get unexpected results)
-        Polygon.prototype.checkIfConvex = function () {
+        public checkIfConvex() {
             if (!CSG.Polygon.verticesConvex(this.vertices, this.plane.normal)) {
                 CSG.Polygon.verticesConvex(this.vertices, this.plane.normal);
                 throw new Error("Not convex!");
             }
-        };
-        Polygon.prototype.setColor = function (args) {
+        }
+
+        public setColor(args) {
             var newshared = CSG.Polygon.Shared.fromColor.apply(this, arguments);
             this.shared = newshared;
             return this;
-        };
-        Polygon.prototype.getSignedVolume = function () {
+        }
+
+        public getSignedVolume() {
             var signedVolume = 0;
             for (var i = 0; i < this.vertices.length - 2; i++) {
                 signedVolume += this.vertices[0].pos.dot(this.vertices[i + 1].pos
@@ -2702,9 +2856,10 @@ var CSG;
             }
             signedVolume /= 6;
             return signedVolume;
-        };
+        }
+
         // Note: could calculate vectors only once to speed up
-        Polygon.prototype.getArea = function () {
+        public getArea() {
             var polygonArea = 0;
             for (var i = 0; i < this.vertices.length - 2; i++) {
                 polygonArea += this.vertices[i + 1].pos.minus(this.vertices[0].pos)
@@ -2712,32 +2867,35 @@ var CSG;
             }
             polygonArea /= 2;
             return polygonArea;
-        };
+        }
+
+
         // accepts array of features to calculate
         // returns array of results
-        Polygon.prototype.getTetraFeatures = function (features) {
+        public getTetraFeatures(features) {
             var result = [];
             features.forEach(function (feature) {
                 if (feature == 'volume') {
                     result.push(this.getSignedVolume());
-                }
-                else if (feature == 'area') {
+                } else if (feature == 'area') {
                     result.push(this.getArea());
                 }
             }, this);
             return result;
-        };
+        }
+
         // Extrude a polygon into the direction offsetvector
         // Returns a CSG object
-        Polygon.prototype.extrude = function (offsetvector) {
+        public extrude(offsetvector) {
             var newpolygons = [];
+
             var polygon1 = this;
             var direction = polygon1.plane.normal.dot(offsetvector);
             if (direction > 0) {
                 polygon1 = polygon1.flipped();
             }
             newpolygons.push(polygon1);
-            var polygon2 = polygon1.translate(offsetvector);
+            var polygon2 = <Polygon>polygon1.translate(offsetvector);
             var numvertices = this.vertices.length;
             for (var i = 0; i < numvertices; i++) {
                 var sidefacepoints = [];
@@ -2752,9 +2910,10 @@ var CSG;
             polygon2 = polygon2.flipped();
             newpolygons.push(polygon2);
             return CSG.fromPolygons(newpolygons);
-        };
+        }
+
         // returns an array with a CSG.Vector3D (center point) and a radius
-        Polygon.prototype.boundingSphere = function () {
+        public boundingSphere() {
             if (!this.cachedBoundingSphere) {
                 var box = this.boundingBox();
                 var middle = box[0].plus(box[1]).times(0.5);
@@ -2763,17 +2922,17 @@ var CSG;
                 this.cachedBoundingSphere = [middle, radius];
             }
             return this.cachedBoundingSphere;
-        };
+        }
+
         // returns an array of two CSG.Vector3Ds (minimum coordinates and maximum coordinates)
-        Polygon.prototype.boundingBox = function () {
+        public boundingBox() {
             if (!this.cachedBoundingBox) {
                 var minpoint, maxpoint;
                 var vertices = this.vertices;
                 var numvertices = vertices.length;
                 if (numvertices === 0) {
                     minpoint = new CSG.Vector3D(0, 0, 0);
-                }
-                else {
+                } else {
                     minpoint = vertices[0].pos;
                 }
                 maxpoint = minpoint;
@@ -2785,17 +2944,19 @@ var CSG;
                 this.cachedBoundingBox = [minpoint, maxpoint];
             }
             return this.cachedBoundingBox;
-        };
-        Polygon.prototype.flipped = function () {
+        }
+
+        public flipped() {
             var newvertices = this.vertices.map(function (v) {
                 return v.flipped();
             });
             newvertices.reverse();
             var newplane = this.plane.flipped();
             return new CSG.Polygon(newvertices, this.shared, newplane);
-        };
+        }
+
         // Affine transformation of polygon. Returns a new CSG.Polygon
-        Polygon.prototype.transform = function (matrix4x4) {
+        public transform(matrix4x4) {
             var newvertices = this.vertices.map(function (v) {
                 return v.transform(matrix4x4);
             });
@@ -2806,16 +2967,18 @@ var CSG;
                 newvertices.reverse();
             }
             return new CSG.Polygon(newvertices, this.shared, newplane);
-        };
-        Polygon.prototype.toString = function () {
+        }
+
+        public toString() {
             var result = "Polygon plane: " + this.plane.toString() + "\n";
             this.vertices.map(function (vertex) {
                 result += "  " + vertex.toString() + "\n";
             });
             return result;
-        };
+        }
+
         // project the 3D polygon onto a plane
-        Polygon.prototype.projectToOrthoNormalBasis = function (orthobasis) {
+        public projectToOrthoNormalBasis(orthobasis) {
             var points2d = this.vertices.map(function (vertex) {
                 return orthobasis.to2D(vertex.pos);
             });
@@ -2825,12 +2988,12 @@ var CSG;
                 // the polygon was perpendicular to the orthnormal plane. The resulting 2D polygon would be degenerate
                 // return an empty area instead:
                 result = new CAG();
-            }
-            else if (area < 0) {
+            } else if (area < 0) {
                 result = result.flipped();
             }
             return result;
-        };
+        }
+
         /**
             * Creates solid from slices (CSG.Polygon) by generating walls
             * @param {Object} options Solid generating options
@@ -2840,12 +3003,23 @@ var CSG;
             *          return: CSG.Polygon or null to skip
             *  - loop {Boolean} no flats, only walls, it's used to generate solids like a tor
             */
-        Polygon.prototype.solidFromSlices = function (options) {
-            var polygons = [], csg = null, prev = null, bottom = null, top = null, numSlices = 2, bLoop = false, fnCallback, flipped = null;
+        public solidFromSlices(options) {
+            var polygons = [],
+                csg = null,
+                prev = null,
+                bottom = null,
+                top = null,
+                numSlices = 2,
+                bLoop = false,
+                fnCallback,
+                flipped = null;
+
             if (options) {
                 bLoop = Boolean(options['loop']);
+
                 if (options.numslices)
                     numSlices = options.numslices;
+
                 if (options.callback)
                     fnCallback = options.callback;
             }
@@ -2858,7 +3032,7 @@ var CSG;
                 ]);
                 fnCallback = function (t, slice) {
                     return t == 0 || t == 1 ? square.translate([0, 0, t]) : null;
-                };
+                }
             }
             for (var i = 0, iMax = numSlices - 1; i <= iMax; i++) {
                 csg = fnCallback.call(this, i / iMax, i);
@@ -2867,50 +3041,55 @@ var CSG;
                         throw new Error("CSG.Polygon.solidFromSlices callback error: CSG.Polygon expected");
                     }
                     csg.checkIfConvex();
-                    if (prev) {
-                        if (flipped === null) {
+
+                    if (prev) { //generate walls
+                        if (flipped === null) { //not generated yet
                             flipped = prev.plane.signedDistanceToPoint(csg.vertices[0].pos) < 0;
                         }
                         this._addWalls(polygons, prev, csg, flipped);
-                    }
-                    else {
+
+                    } else { //the first - will be a bottom
                         bottom = csg;
                     }
                     prev = csg;
                 } //callback can return null to skip that slice
             }
             top = csg;
+
             if (bLoop) {
                 var bSameTopBottom = bottom.vertices.length == top.vertices.length &&
                     bottom.vertices.every(function (v, index) {
-                        return v.pos.equals(top.vertices[index].pos);
+                        return v.pos.equals(top.vertices[index].pos)
                     });
                 //if top and bottom are not the same -
                 //generate walls between them
                 if (!bSameTopBottom) {
                     this._addWalls(polygons, top, bottom, flipped);
                 } //else - already generated
-            }
-            else {
+            } else {
                 //save top and bottom
                 //TODO: flip if necessary
                 polygons.unshift(flipped ? bottom : bottom.flipped());
                 polygons.push(flipped ? top.flipped() : top);
             }
             return CSG.fromPolygons(polygons);
-        };
+        }
         /**
             *
             * @param walls Array of wall polygons
             * @param bottom Bottom polygon
             * @param top Top polygon
             */
-        Polygon.prototype._addWalls = function (walls, bottom, top, bFlipped) {
-            var bottomPoints = bottom.vertices.slice(0), topPoints = top.vertices.slice(0), color = top.shared || null;
+        private _addWalls(walls, bottom, top, bFlipped) {
+            var bottomPoints = bottom.vertices.slice(0), //make a copy
+                topPoints = top.vertices.slice(0), //make a copy
+                color = top.shared || null;
+
             //check if bottom perimeter is closed
             if (!bottomPoints[0].pos.equals(bottomPoints[bottomPoints.length - 1].pos)) {
                 bottomPoints.push(bottomPoints[0]);
             }
+
             //check if top perimeter is closed
             if (!topPoints[0].pos.equals(topPoints[topPoints.length - 1].pos)) {
                 topPoints.push(topPoints[0]);
@@ -2919,7 +3098,13 @@ var CSG;
                 bottomPoints = bottomPoints.reverse();
                 topPoints = topPoints.reverse();
             }
-            var iTopLen = topPoints.length - 1, iBotLen = bottomPoints.length - 1, iExtra = iTopLen - iBotLen, bMoreTops = iExtra > 0, bMoreBottoms = iExtra < 0;
+
+            var iTopLen = topPoints.length - 1,
+                iBotLen = bottomPoints.length - 1,
+                iExtra = iTopLen - iBotLen, //how many extra triangles we need
+                bMoreTops = iExtra > 0,
+                bMoreBottoms = iExtra < 0;
+
             var aMin = []; //indexes to start extra triangles (polygon with minimal square)
             //init - we need exactly /iExtra/ small triangles
             for (var i = Math.abs(iExtra); i > 0; i--) {
@@ -2928,6 +3113,7 @@ var CSG;
                     index: -1
                 });
             }
+
             var len;
             if (bMoreBottoms) {
                 for (var i = 0; i < iBotLen; i++) {
@@ -2941,8 +3127,7 @@ var CSG;
                         }
                     } //for
                 }
-            }
-            else if (bMoreTops) {
+            } else if (bMoreTops) {
                 for (var i = 0; i < iTopLen; i++) {
                     len = topPoints[i].pos.distanceToSquared(topPoints[i + 1].pos);
                     //find the element to replace
@@ -2961,54 +3146,62 @@ var CSG;
                 return new CSG.Polygon([pointA, pointB, pointC], color);
                 //return bFlipped ? triangle.flipped() : triangle;
             };
-            var bpoint = bottomPoints[0], tpoint = topPoints[0], secondPoint, nBotFacet, nTopFacet; //length of triangle facet side
+
+            var bpoint = bottomPoints[0],
+                tpoint = topPoints[0],
+                secondPoint,
+                nBotFacet, nTopFacet; //length of triangle facet side
             for (var iB = 0, iT = 0, iMax = iTopLen + iBotLen; iB + iT < iMax;) {
                 if (aMin.length) {
-                    if (bMoreTops && iT == aMin[0].index) {
+                    if (bMoreTops && iT == aMin[0].index) { //one vertex is on the bottom, 2 - on the top
                         secondPoint = topPoints[++iT];
                         //console.log('<<< extra top: ' + secondPoint + ', ' + tpoint + ', bottom: ' + bpoint);
-                        walls.push(getTriangle(secondPoint, tpoint, bpoint, color));
+                        walls.push(getTriangle(
+                            secondPoint, tpoint, bpoint, color
+                            ));
                         tpoint = secondPoint;
                         aMin.shift();
                         continue;
-                    }
-                    else if (bMoreBottoms && iB == aMin[0].index) {
+                    } else if (bMoreBottoms && iB == aMin[0].index) {
                         secondPoint = bottomPoints[++iB];
-                        walls.push(getTriangle(tpoint, bpoint, secondPoint, color));
+                        walls.push(getTriangle(
+                            tpoint, bpoint, secondPoint, color
+                            ));
                         bpoint = secondPoint;
                         aMin.shift();
                         continue;
                     }
                 }
                 //choose the shortest path
-                if (iB < iBotLen) {
+                if (iB < iBotLen) { //one vertex is on the top, 2 - on the bottom
                     nBotFacet = tpoint.pos.distanceToSquared(bottomPoints[iB + 1].pos);
-                }
-                else {
+                } else {
                     nBotFacet = Infinity;
                 }
-                if (iT < iTopLen) {
+                if (iT < iTopLen) { //one vertex is on the bottom, 2 - on the top
                     nTopFacet = bpoint.pos.distanceToSquared(topPoints[iT + 1].pos);
-                }
-                else {
+                } else {
                     nTopFacet = Infinity;
                 }
                 if (nBotFacet <= nTopFacet) {
                     secondPoint = bottomPoints[++iB];
-                    walls.push(getTriangle(tpoint, bpoint, secondPoint, color));
+                    walls.push(getTriangle(
+                        tpoint, bpoint, secondPoint, color
+                        ));
                     bpoint = secondPoint;
-                }
-                else if (iT < iTopLen) {
+                } else if (iT < iTopLen) { //nTopFacet < Infinity
                     secondPoint = topPoints[++iT];
                     //console.log('<<< top: ' + secondPoint + ', ' + tpoint + ', bottom: ' + bpoint);
-                    walls.push(getTriangle(secondPoint, tpoint, bpoint, color));
+                    walls.push(getTriangle(
+                        secondPoint, tpoint, bpoint, color
+                        ));
                     tpoint = secondPoint;
-                }
-                ;
+                };
             }
             return walls;
-        };
-        Polygon.verticesConvex = function (vertices, planenormal) {
+        }
+
+        public static verticesConvex(vertices, planenormal) {
             var numvertices = vertices.length;
             if (numvertices > 2) {
                 var prevprevpos = vertices[numvertices - 2].pos;
@@ -3023,15 +3216,15 @@ var CSG;
                 }
             }
             return true;
-        };
+        }
+
         // Create a polygon from the given points
-        Polygon.createFromPoints = function (points, shared, plane) {
+        public static createFromPoints(points, shared?, plane?) {
             var normal;
             if (arguments.length < 3) {
                 // initially set a dummy vertex normal:
                 normal = new CSG.Vector3D(0, 0, 0);
-            }
-            else {
+            } else {
                 normal = plane.normal;
             }
             var vertices = [];
@@ -3043,29 +3236,32 @@ var CSG;
             var polygon;
             if (arguments.length < 3) {
                 polygon = new CSG.Polygon(vertices, shared);
-            }
-            else {
+            } else {
                 polygon = new CSG.Polygon(vertices, shared, plane);
             }
             return polygon;
-        };
+        }
+
         // calculate whether three points form a convex corner
         //  prevpoint, point, nextpoint: the 3 coordinates (CSG.Vector3D instances)
         //  normal: the normal vector of the plane
-        Polygon.isConvexPoint = function (prevpoint, point, nextpoint, normal) {
+        public static isConvexPoint(prevpoint, point, nextpoint, normal) {
             var crossproduct = point.minus(prevpoint).cross(nextpoint.minus(point));
             var crossdotnormal = crossproduct.dot(normal);
             return (crossdotnormal >= 0);
-        };
-        Polygon.isStrictlyConvexPoint = function (prevpoint, point, nextpoint, normal) {
+        }
+
+        public static isStrictlyConvexPoint(prevpoint, point, nextpoint, normal) {
             var crossproduct = point.minus(prevpoint).cross(nextpoint.minus(point));
             var crossdotnormal = crossproduct.dot(normal);
             return (crossdotnormal >= 1e-5);
-        };
+        }
+
         //formats
-        Polygon.prototype.toStlString = function () {
+        public toStlString() {
             var result = "";
-            if (this.vertices.length >= 3) {
+            if (this.vertices.length >= 3) // should be!
+            {
                 // STL requires triangular polygons. If our polygon has more vertices, create
                 // multiple triangles:
                 var firstVertexStl = this.vertices[0].toStlString();
@@ -3078,74 +3274,75 @@ var CSG;
                 }
             }
             return result;
-        };
-        return Polygon;
-    })(CxG);
-    CSG.Polygon = Polygon;
-})(CSG || (CSG = {}));
-var CSG;
-(function (CSG) {
-    var Polygon;
-    (function (Polygon) {
-        // # class CSG.Polygon.Shared
-        // Holds the shared properties for each polygon (currently only color)
-        // Constructor expects a 4 element array [r,g,b,a], values from 0 to 1, or null
-        var Shared = (function () {
-            function Shared(color) {
-                if (color !== null) {
-                    if (color.length != 4) {
-                        throw new Error("Expecting 4 element array");
-                    }
+        }
+    }
+}
+
+module CSG.Polygon {
+    // # class CSG.Polygon.Shared
+    // Holds the shared properties for each polygon (currently only color)
+    // Constructor expects a 4 element array [r,g,b,a], values from 0 to 1, or null
+    export class Shared {
+
+        public color;
+        public tag;
+
+        constructor(color) {
+            if (color !== null) {
+                if (color.length != 4) {
+                    throw new Error("Expecting 4 element array");
                 }
-                this.color = color;
             }
-            Shared.fromObject = function (obj) {
-                return new Shared(obj.color);
-            };
-            // Create CSG.Polygon.Shared from a color, can be called as follows:
-            // var s = CSG.Polygon.Shared.fromColor(r,g,b [,a])
-            // var s = CSG.Polygon.Shared.fromColor([r,g,b [,a]])
-            Shared.fromColor = function (args) {
-                var color;
-                if (arguments.length == 1) {
-                    color = arguments[0].slice(); // make deep copy
+            this.color = color;
+        }
+
+        public static fromObject(obj) {
+            return new Shared(obj.color);
+        }
+
+        // Create CSG.Polygon.Shared from a color, can be called as follows:
+        // var s = CSG.Polygon.Shared.fromColor(r,g,b [,a])
+        // var s = CSG.Polygon.Shared.fromColor([r,g,b [,a]])
+        public static fromColor(args) {
+            var color;
+            if (arguments.length == 1) {
+                color = arguments[0].slice(); // make deep copy
+            }
+            else {
+                color = [];
+                for (var i = 0; i < arguments.length; i++) {
+                    color.push(arguments[i]);
                 }
-                else {
-                    color = [];
-                    for (var i = 0; i < arguments.length; i++) {
-                        color.push(arguments[i]);
-                    }
-                }
-                if (color.length == 3) {
-                    color.push(1);
-                }
-                else if (color.length != 4) {
-                    throw new Error("setColor expects either an array with 3 or 4 elements, or 3 or 4 parameters.");
-                }
-                return new Shared(color);
-            };
-            Shared.prototype.getTag = function () {
-                var result = this.tag;
-                if (!result) {
-                    result = CSG.getTag();
-                    this.tag = result;
-                }
-                return result;
-            };
-            // get a string uniquely identifying this object
-            Shared.prototype.getHash = function () {
-                if (!this.color)
-                    return "null";
-                return this.color.join("/");
-            };
-            return Shared;
-        })();
-        Polygon.Shared = Shared;
-        Polygon.defaultShared = new Shared(null);
-    })(Polygon = CSG.Polygon || (CSG.Polygon = {}));
-})(CSG || (CSG = {}));
-var CSG;
-(function (CSG) {
+            }
+            if (color.length == 3) {
+                color.push(1);
+            } else if (color.length != 4) {
+                throw new Error("setColor expects either an array with 3 or 4 elements, or 3 or 4 parameters.");
+            }
+            return new Shared(color);
+        }
+
+        public getTag() {
+            var result = this.tag;
+            if (!result) {
+                result = CSG.getTag();
+                this.tag = result;
+            }
+            return result;
+        }
+
+        // get a string uniquely identifying this object
+        public getHash() {
+            if (!this.color) return "null";
+            return this.color.join("/");
+        }
+    }
+
+    Polygon.defaultShared = new Shared(null);
+}
+
+module CSG {
+
     // # class PolygonTreeNode
     // This class manages hierarchical splits of polygons
     // At the top is a root node which doesn hold a polygon, only child PolygonTreeNodes
@@ -3159,16 +3356,23 @@ var CSG;
     // remove() removes a polygon from the tree. Once a polygon is removed, the parent polygons are invalidated
     // since they are no longer intact.
     // constructor creates the root node:
-    var PolygonTreeNode = (function () {
-        function PolygonTreeNode() {
+    export class PolygonTreeNode {
+        public parent;
+        public children;
+        public polygon: Polygon;
+        public removed: boolean;
+
+        constructor() {
             this.parent = null;
             this.children = [];
             this.polygon = null;
             this.removed = false;
         }
+
+    
         // fill the tree with polygons. Should be called on the root node only; child nodes must
         // always be a derivate (split) of the parent node.
-        PolygonTreeNode.prototype.addPolygons = function (polygons) {
+        public addPolygons(polygons) {
             if (!this.isRootNode())
                 // new polygons can only be added to root node; children can only be splitted polygons
                 throw new Error("Assertion failed");
@@ -3176,92 +3380,95 @@ var CSG;
             polygons.map(function (polygon) {
                 _this.addChild(polygon);
             });
-        };
+        }
+
         // remove a node
         // - the siblings become toplevel nodes
         // - the parent is removed recursively
-        PolygonTreeNode.prototype.remove = function () {
+        public remove() {
             if (!this.removed) {
                 this.removed = true;
+
                 if (false) {
-                    if (this.isRootNode())
-                        throw new Error("Assertion failed"); // can't remove root node
-                    if (this.children.length)
-                        throw new Error("Assertion failed"); // we shouldn't remove nodes with children
+                    if (this.isRootNode()) throw new Error("Assertion failed"); // can't remove root node
+                    if (this.children.length) throw new Error("Assertion failed"); // we shouldn't remove nodes with children
                 }
+
                 // remove ourselves from the parent's children list:
                 var parentschildren = this.parent.children;
                 var i = parentschildren.indexOf(this);
-                if (i < 0)
-                    throw new Error("Assertion failed");
+                if (i < 0) throw new Error("Assertion failed");
                 parentschildren.splice(i, 1);
+
                 // invalidate the parent's polygon, and of all parents above it:
                 this.parent.recursivelyInvalidatePolygon();
             }
-        };
-        PolygonTreeNode.prototype.isRemoved = function () {
+        }
+
+        public isRemoved() {
             return this.removed;
-        };
-        PolygonTreeNode.prototype.isRootNode = function () {
+        }
+
+        public isRootNode() {
             return !this.parent;
-        };
+        }
+
         // invert all polygons in the tree. Call on the root node
-        PolygonTreeNode.prototype.invert = function () {
-            if (!this.isRootNode())
-                throw new Error("Assertion failed"); // can only call this on the root node
+        public invert() {
+            if (!this.isRootNode()) throw new Error("Assertion failed"); // can only call this on the root node
             this.invertSub();
-        };
-        PolygonTreeNode.prototype.getPolygon = function () {
-            if (!this.polygon)
-                throw new Error("Assertion failed"); // doesn't have a polygon, which means that it has been broken down
+        }
+
+        public getPolygon() {
+            if (!this.polygon) throw new Error("Assertion failed"); // doesn't have a polygon, which means that it has been broken down
             return this.polygon;
-        };
-        PolygonTreeNode.prototype.getPolygons = function (result) {
+        }
+
+        public getPolygons(result) {
             var children = [this];
             var queue = [children];
             var i, j, l, node;
-            for (i = 0; i < queue.length; ++i) {
+            for (i = 0; i < queue.length; ++i) { // queue size can change in loop, don't cache length
                 children = queue[i];
-                for (j = 0, l = children.length; j < l; j++) {
+                for (j = 0, l = children.length; j < l; j++) { // ok to cache length
                     node = children[j];
                     if (node.polygon) {
                         // the polygon hasn't been broken yet. We can ignore the children and return our polygon:
                         result.push(node.polygon);
-                    }
-                    else {
+                    } else {
                         // our polygon has been split up and broken, so gather all subpolygons from the children
                         queue.push(node.children);
                     }
                 }
             }
-        };
+        }
+
         // split the node by a plane; add the resulting nodes to the frontnodes and backnodes array
         // If the plane doesn't intersect the polygon, the 'this' object is added to one of the arrays
         // If the plane does intersect the polygon, two new child nodes are created for the front and back fragments,
         //  and added to both arrays.
-        PolygonTreeNode.prototype.splitByPlane = function (plane, coplanarfrontnodes, coplanarbacknodes, frontnodes, backnodes) {
+        public splitByPlane(plane, coplanarfrontnodes, coplanarbacknodes, frontnodes, backnodes) {
             if (this.children.length) {
                 var queue = [this.children], i, j, l, node, nodes;
-                for (i = 0; i < queue.length; i++) {
+                for (i = 0; i < queue.length; i++) { // queue.length can increase, do not cache
                     nodes = queue[i];
-                    for (j = 0, l = nodes.length; j < l; j++) {
+                    for (j = 0, l = nodes.length; j < l; j++) { // ok to cache length
                         node = nodes[j];
                         if (node.children.length) {
                             queue.push(node.children);
-                        }
-                        else {
+                        } else {
                             // no children. Split the polygon:
                             node._splitByPlane(plane, coplanarfrontnodes, coplanarbacknodes, frontnodes, backnodes);
                         }
                     }
                 }
-            }
-            else {
+            } else {
                 this._splitByPlane(plane, coplanarfrontnodes, coplanarbacknodes, frontnodes, backnodes);
             }
-        };
+        }
+
         // only to be called for nodes with no children
-        PolygonTreeNode.prototype._splitByPlane = function (plane, coplanarfrontnodes, coplanarbacknodes, frontnodes, backnodes) {
+        public _splitByPlane(plane, coplanarfrontnodes, coplanarbacknodes, frontnodes, backnodes) {
             var polygon = this.polygon;
             if (polygon) {
                 var bound = polygon.boundingSphere();
@@ -3271,29 +3478,31 @@ var CSG;
                 var d = planenormal.dot(spherecenter) - plane.w;
                 if (d > sphereradius) {
                     frontnodes.push(this);
-                }
-                else if (d < -sphereradius) {
+                } else if (d < -sphereradius) {
                     backnodes.push(this);
-                }
-                else {
+                } else {
                     var splitresult = plane.splitPolygon(polygon);
                     switch (splitresult.type) {
                         case 0:
                             // coplanar front:
                             coplanarfrontnodes.push(this);
                             break;
+
                         case 1:
                             // coplanar back:
                             coplanarbacknodes.push(this);
                             break;
+
                         case 2:
                             // front:
                             frontnodes.push(this);
                             break;
+
                         case 3:
                             // back:
                             backnodes.push(this);
                             break;
+
                         case 4:
                             // spanning:
                             if (splitresult.front) {
@@ -3308,20 +3517,23 @@ var CSG;
                     }
                 }
             }
-        };
+        }
+
+
         // PRIVATE methods from here:
         // add child to a node
         // this should be called whenever the polygon is split
         // a child should be created for every fragment of the split polygon
         // returns the newly created child
-        PolygonTreeNode.prototype.addChild = function (polygon) {
+        public addChild(polygon) {
             var newchild = new CSG.PolygonTreeNode();
             newchild.parent = this;
             newchild.polygon = polygon;
             this.children.push(newchild);
             return newchild;
-        };
-        PolygonTreeNode.prototype.invertSub = function () {
+        }
+
+        public invertSub() {
             var children = [this];
             var queue = [children];
             var i, j, l, node;
@@ -3335,8 +3547,9 @@ var CSG;
                     queue.push(node.children);
                 }
             }
-        };
-        PolygonTreeNode.prototype.recursivelyInvalidatePolygon = function () {
+        }
+
+        public recursivelyInvalidatePolygon() {
             var node = this;
             while (node.polygon) {
                 node.polygon = null;
@@ -3344,48 +3557,54 @@ var CSG;
                     node = node.parent;
                 }
             }
-        };
-        return PolygonTreeNode;
-    })();
-    CSG.PolygonTreeNode = PolygonTreeNode;
+        }
+    }
+
+
+
     // # class Tree
     // This is the root of a BSP tree
     // We are using this separate class for the root of the tree, to hold the PolygonTreeNode root
     // The actual tree is kept in this.rootnode
-    var Tree = (function () {
-        function Tree(polygons) {
+    export class Tree {
+
+        public polygonTree = new CSG.PolygonTreeNode();
+        public rootnode = new CSG.Node(null);
+
+        constructor(polygons) {
             this.polygonTree = new CSG.PolygonTreeNode();
             this.rootnode = new CSG.Node(null);
-            this.polygonTree = new CSG.PolygonTreeNode();
-            this.rootnode = new CSG.Node(null);
-            if (polygons)
-                this.addPolygons(polygons);
+            if (polygons) this.addPolygons(polygons);
         }
-        Tree.prototype.invert = function () {
+
+
+        public invert() {
             this.polygonTree.invert();
             this.rootnode.invert();
-        };
+        }
+
         // Remove all polygons in this BSP tree that are inside the other BSP tree
         // `tree`.
-        Tree.prototype.clipTo = function (tree, alsoRemovecoplanarFront) {
+        public clipTo(tree, alsoRemovecoplanarFront?) {
             alsoRemovecoplanarFront = alsoRemovecoplanarFront ? true : false;
             this.rootnode.clipTo(tree, alsoRemovecoplanarFront);
-        };
-        Tree.prototype.allPolygons = function () {
+        }
+
+        public allPolygons() {
             var result = [];
             this.polygonTree.getPolygons(result);
             return result;
-        };
-        Tree.prototype.addPolygons = function (polygons) {
+        }
+
+        public addPolygons(polygons) {
             var _this = this;
             var polygontreenodes = polygons.map(function (p) {
                 return _this.polygonTree.addChild(p);
             });
             this.rootnode.addPolygonTreeNodes(polygontreenodes);
-        };
-        return Tree;
-    })();
-    CSG.Tree = Tree;
+        }
+    }
+
     // # class Node
     // Holds a node in a BSP tree. A BSP tree is built from a collection of polygons
     // by picking a polygon to split along.
@@ -3394,41 +3613,47 @@ var CSG;
     // CSG.Tree.polygonTree
     // This is not a leafy BSP tree since there is
     // no distinction between internal and leaf nodes.
-    var Node = (function () {
-        function Node(parent) {
-            this.parent = parent;
+    export class Node {
+        public plane: Plane;
+        public front;
+        public back;
+        public polygontreenodes;
+
+        constructor(public parent) {
             this.plane = null;
             this.front = null;
             this.back = null;
             this.polygontreenodes = [];
             this.parent = parent;
         }
+
+    
         // Convert solid space to empty space and empty space to solid space.
-        Node.prototype.invert = function () {
+        public invert() {
             var queue = [this];
             var node;
             for (var i = 0; i < queue.length; i++) {
                 node = queue[i];
-                if (node.plane)
-                    node.plane = node.plane.flipped();
-                if (node.front)
-                    queue.push(node.front);
-                if (node.back)
-                    queue.push(node.back);
+                if (node.plane) node.plane = node.plane.flipped();
+                if (node.front) queue.push(node.front);
+                if (node.back) queue.push(node.back);
                 var temp = node.front;
                 node.front = node.back;
                 node.back = temp;
             }
-        };
+        }
+
         // clip polygontreenodes to our plane
         // calls remove() for all clipped PolygonTreeNodes
-        Node.prototype.clipPolygons = function (polygontreenodes, alsoRemovecoplanarFront) {
-            var args = { 'node': this, 'polygontreenodes': polygontreenodes };
+        public clipPolygons(polygontreenodes, alsoRemovecoplanarFront) {
+            var args = { 'node': this, 'polygontreenodes': polygontreenodes }
             var node;
             var stack = [];
+
             do {
                 node = args.node;
                 polygontreenodes = args.polygontreenodes;
+
                 // begin "function"
                 if (node.plane) {
                     var backnodes = [];
@@ -3442,14 +3667,14 @@ var CSG;
                             node1.splitByPlane(plane, coplanarfrontnodes, backnodes, frontnodes, backnodes);
                         }
                     }
+
                     if (node.front && (frontnodes.length > 0)) {
                         stack.push({ 'node': node.front, 'polygontreenodes': frontnodes });
                     }
                     var numbacknodes = backnodes.length;
                     if (node.back && (numbacknodes > 0)) {
                         stack.push({ 'node': node.back, 'polygontreenodes': backnodes });
-                    }
-                    else {
+                    } else {
                         // there's nothing behind this plane. Delete the nodes behind this plane:
                         for (var i = 0; i < numbacknodes; i++) {
                             backnodes[i].remove();
@@ -3458,29 +3683,30 @@ var CSG;
                 }
                 args = stack.pop();
             } while (typeof (args) !== 'undefined');
-        };
+        }
+
         // Remove all polygons in this BSP tree that are inside the other BSP tree
         // `tree`.
-        Node.prototype.clipTo = function (tree, alsoRemovecoplanarFront) {
+        public clipTo(tree, alsoRemovecoplanarFront) {
             var node = this, stack = [];
             do {
                 if (node.polygontreenodes.length > 0) {
                     tree.rootnode.clipPolygons(node.polygontreenodes, alsoRemovecoplanarFront);
                 }
-                if (node.front)
-                    stack.push(node.front);
-                if (node.back)
-                    stack.push(node.back);
+                if (node.front) stack.push(node.front);
+                if (node.back) stack.push(node.back);
                 node = stack.pop();
             } while (typeof (node) !== 'undefined');
-        };
-        Node.prototype.addPolygonTreeNodes = function (polygontreenodes) {
+        }
+
+        public addPolygonTreeNodes(polygontreenodes) {
             var args = { 'node': this, 'polygontreenodes': polygontreenodes };
             var node;
             var stack = [];
             do {
                 node = args.node;
                 polygontreenodes = args.polygontreenodes;
+
                 if (polygontreenodes.length === 0) {
                     args = stack.pop();
                     continue;
@@ -3492,63 +3718,66 @@ var CSG;
                 }
                 var frontnodes = [];
                 var backnodes = [];
+
                 for (var i = 0, n = polygontreenodes.length; i < n; ++i) {
                     polygontreenodes[i].splitByPlane(_this.plane, _this.polygontreenodes, backnodes, frontnodes, backnodes);
                 }
+
                 if (frontnodes.length > 0) {
-                    if (!node.front)
-                        node.front = new CSG.Node(node);
+                    if (!node.front) node.front = new CSG.Node(node);
                     stack.push({ 'node': node.front, 'polygontreenodes': frontnodes });
                 }
                 if (backnodes.length > 0) {
-                    if (!node.back)
-                        node.back = new CSG.Node(node);
+                    if (!node.back) node.back = new CSG.Node(node);
                     stack.push({ 'node': node.back, 'polygontreenodes': backnodes });
                 }
+
                 args = stack.pop();
             } while (typeof (args) !== 'undefined');
-        };
-        Node.prototype.getParentPlaneNormals = function (normals, maxdepth) {
+        }
+
+        public getParentPlaneNormals(normals, maxdepth) {
             if (maxdepth > 0) {
                 if (this.parent) {
                     normals.push(this.parent.plane.normal);
                     this.parent.getParentPlaneNormals(normals, maxdepth - 1);
                 }
             }
-        };
-        return Node;
-    })();
-    CSG.Node = Node;
+        }
+    }
+
     //////////
     // # class Matrix4x4:
     // Represents a 4x4 matrix. Elements are specified in row order
-    var Matrix4x4 = (function () {
-        function Matrix4x4(elements) {
-            this.elements = elements;
+    export class Matrix4x4 {
+
+        constructor(public elements?: number[]) {
             if (arguments.length >= 1) {
                 this.elements = elements;
-            }
-            else {
+            } else {
                 // if no arguments passed: create unity matrix
                 this.elements = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
             }
         }
-        Matrix4x4.prototype.plus = function (m) {
+
+        public plus(m) {
             var r = [];
             for (var i = 0; i < 16; i++) {
                 r[i] = this.elements[i] + m.elements[i];
             }
             return new CSG.Matrix4x4(r);
-        };
-        Matrix4x4.prototype.minus = function (m) {
+        }
+
+        public minus(m) {
             var r = [];
             for (var i = 0; i < 16; i++) {
                 r[i] = this.elements[i] - m.elements[i];
             }
             return new CSG.Matrix4x4(r);
-        };
+        }
+
         // right multiply by another 4x4 matrix:
-        Matrix4x4.prototype.multiply = function (m) {
+        public multiply(m) {
             // cache elements in local variables, for speedup:
             var this0 = this.elements[0];
             var this1 = this.elements[1];
@@ -3582,6 +3811,7 @@ var CSG;
             var m13 = m.elements[13];
             var m14 = m.elements[14];
             var m15 = m.elements[15];
+
             var result = [];
             result[0] = this0 * m0 + this1 * m4 + this2 * m8 + this3 * m12;
             result[1] = this0 * m1 + this1 * m5 + this2 * m9 + this3 * m13;
@@ -3600,17 +3830,19 @@ var CSG;
             result[14] = this12 * m2 + this13 * m6 + this14 * m10 + this15 * m14;
             result[15] = this12 * m3 + this13 * m7 + this14 * m11 + this15 * m15;
             return new CSG.Matrix4x4(result);
-        };
-        Matrix4x4.prototype.clone = function () {
+        }
+
+        public clone() {
             var elements = this.elements.map(function (p) {
                 return p;
             });
             return new CSG.Matrix4x4(elements);
-        };
+        }
+
         // Right multiply the matrix by a CSG.Vector3D (interpreted as 3 row, 1 column)
         // (result = M*v)
         // Fourth element is taken as 1
-        Matrix4x4.prototype.rightMultiply1x3Vector = function (v) {
+        public rightMultiply1x3Vector(v: Vector3D) {
             var v0 = v.x;
             var v1 = v.y;
             var v2 = v.z;
@@ -3627,11 +3859,12 @@ var CSG;
                 z *= invw;
             }
             return new CSG.Vector3D(x, y, z);
-        };
+        }
+
         // Multiply a CSG.Vector3D (interpreted as 3 column, 1 row) by this matrix
         // (result = v*M)
         // Fourth element is taken as 1
-        Matrix4x4.prototype.leftMultiply1x3Vector = function (v) {
+        public leftMultiply1x3Vector(v: Vector3D) {
             var v0 = v.x;
             var v1 = v.y;
             var v2 = v.z;
@@ -3648,11 +3881,12 @@ var CSG;
                 z *= invw;
             }
             return new CSG.Vector3D(x, y, z);
-        };
+        }
+
         // Right multiply the matrix by a CSG.Vector2D (interpreted as 2 row, 1 column)
         // (result = M*v)
         // Fourth element is taken as 1
-        Matrix4x4.prototype.rightMultiply1x2Vector = function (v) {
+        public rightMultiply1x2Vector(v) {
             var v0 = v.x;
             var v1 = v.y;
             var v2 = 0;
@@ -3669,11 +3903,12 @@ var CSG;
                 z *= invw;
             }
             return new CSG.Vector2D(x, y);
-        };
+        }
+
         // Multiply a CSG.Vector2D (interpreted as 2 column, 1 row) by this matrix
         // (result = v*M)
         // Fourth element is taken as 1
-        Matrix4x4.prototype.leftMultiply1x2Vector = function (v) {
+        public leftMultiply1x2Vector(v) {
             var v0 = v.x;
             var v1 = v.y;
             var v2 = 0;
@@ -3690,24 +3925,28 @@ var CSG;
                 z *= invw;
             }
             return new CSG.Vector2D(x, y);
-        };
+        }
+
         // determine whether this matrix is a mirroring transformation
-        Matrix4x4.prototype.isMirroring = function () {
+        public isMirroring() {
             var u = new CSG.Vector3D(this.elements[0], this.elements[4], this.elements[8]);
             var v = new CSG.Vector3D(this.elements[1], this.elements[5], this.elements[9]);
             var w = new CSG.Vector3D(this.elements[2], this.elements[6], this.elements[10]);
+
             // for a true orthogonal, non-mirrored base, u.cross(v) == w
             // If they have an opposite direction then we are mirroring
             var mirrorvalue = u.cross(v).dot(w);
             var ismirror = (mirrorvalue < 0);
             return ismirror;
-        };
+        }
+    
         // return the unity matrix
-        Matrix4x4.unity = function () {
+        public static unity() {
             return new CSG.Matrix4x4();
-        };
+        }
+
         // Create a rotation matrix for rotating around the x axis
-        Matrix4x4.rotationX = function (degrees) {
+        public static rotationX(degrees) {
             var radians = degrees * Math.PI * (1.0 / 180.0);
             var cos = Math.cos(radians);
             var sin = Math.sin(radians);
@@ -3715,9 +3954,10 @@ var CSG;
                 1, 0, 0, 0, 0, cos, sin, 0, 0, -sin, cos, 0, 0, 0, 0, 1
             ];
             return new CSG.Matrix4x4(els);
-        };
+        }
+
         // Create a rotation matrix for rotating around the y axis
-        Matrix4x4.rotationY = function (degrees) {
+        public static rotationY(degrees) {
             var radians = degrees * Math.PI * (1.0 / 180.0);
             var cos = Math.cos(radians);
             var sin = Math.sin(radians);
@@ -3725,9 +3965,10 @@ var CSG;
                 cos, 0, -sin, 0, 0, 1, 0, 0, sin, 0, cos, 0, 0, 0, 0, 1
             ];
             return new CSG.Matrix4x4(els);
-        };
+        }
+
         // Create a rotation matrix for rotating around the z axis
-        Matrix4x4.rotationZ = function (degrees) {
+        public static rotationZ(degrees) {
             var radians = degrees * Math.PI * (1.0 / 180.0);
             var cos = Math.cos(radians);
             var sin = Math.sin(radians);
@@ -3735,9 +3976,10 @@ var CSG;
                 cos, sin, 0, 0, -sin, cos, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1
             ];
             return new CSG.Matrix4x4(els);
-        };
+        }
+
         // Matrix for rotation about arbitrary point and axis
-        Matrix4x4.rotation = function (rotationCenter, rotationAxis, degrees) {
+        public static rotation(rotationCenter, rotationAxis, degrees) {
             rotationCenter = new CSG.Vector3D(rotationCenter);
             rotationAxis = new CSG.Vector3D(rotationAxis);
             var rotationPlane = CSG.Plane.fromNormalAndPoint(rotationAxis, rotationCenter);
@@ -3748,16 +3990,18 @@ var CSG;
             transformation = transformation.multiply(orthobasis.getInverseProjectionMatrix());
             transformation = transformation.multiply(CSG.Matrix4x4.translation(rotationCenter));
             return transformation;
-        };
+        }
+
         // Create an affine matrix for translation:
-        Matrix4x4.translation = function (v) {
+        public static translation(v) {
             // parse as CSG.Vector3D, so we can pass an array or a CSG.Vector3D
             var vec = new CSG.Vector3D(v);
             var els = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, vec.x, vec.y, vec.z, 1];
             return new CSG.Matrix4x4(els);
-        };
+        }
+
         // Create an affine matrix for mirroring into an arbitrary plane:
-        Matrix4x4.mirroring = function (plane) {
+        public static mirroring(plane) {
             var nx = plane.normal.x;
             var ny = plane.normal.y;
             var nz = plane.normal.z;
@@ -3769,184 +4013,212 @@ var CSG;
                 (2.0 * nx * w), (2.0 * ny * w), (2.0 * nz * w), 1
             ];
             return new CSG.Matrix4x4(els);
-        };
+        }
+
         // Create an affine matrix for scaling:
-        Matrix4x4.scaling = function (v) {
+        public static scaling(v) {
             // parse as CSG.Vector3D, so we can pass an array or a CSG.Vector3D
             var vec = new CSG.Vector3D(v);
             var els = [
                 vec.x, 0, 0, 0, 0, vec.y, 0, 0, 0, 0, vec.z, 0, 0, 0, 0, 1
             ];
             return new CSG.Matrix4x4(els);
-        };
-        return Matrix4x4;
-    })();
-    CSG.Matrix4x4 = Matrix4x4;
+        }
+    }
+
     ///////////////////////////////////////////////////
     // # class Vector2D:
     // Represents a 2 element vector
-    var Vector2D = (function (_super) {
-        __extends(Vector2D, _super);
-        function Vector2D(x, y) {
-            _super.call(this);
+    export class Vector2D extends CxG {
+
+        public x: number;
+        public y: number;
+
+        constructor(x: number, y: number);
+        constructor(x: number[]);
+        constructor(x: Vector2D);
+        constructor(x?: any, y?: any) {
+            super();
             if (arguments.length == 2) {
                 this.x = parseFloat(x);
                 this.y = parseFloat(y);
-            }
-            else {
+            } else {
                 var ok = true;
                 if (arguments.length == 1) {
                     if (typeof (x) == "object") {
                         if (x instanceof CSG.Vector2D) {
-                            var v2 = x;
+                            var v2 = <Vector2D>x;
                             this.x = v2.x;
                             this.y = v2.y;
-                        }
-                        else if (x instanceof Array) {
+                        } else if (x instanceof Array) {
                             this.x = parseFloat(x[0]);
                             this.y = parseFloat(x[1]);
-                        }
-                        else if (('x' in x) && ('y' in x)) {
+                        } else if (('x' in x) && ('y' in x)) {
                             this.x = parseFloat(x.x);
                             this.y = parseFloat(x.y);
-                        }
-                        else
-                            ok = false;
-                    }
-                    else {
+                        } else ok = false;
+                    } else {
                         var v = parseFloat(x);
                         this.x = v;
                         this.y = v;
                     }
-                }
-                else
-                    ok = false;
+                } else ok = false;
                 if (ok) {
-                    if ((!CSG.IsFloat(this.x)) || (!CSG.IsFloat(this.y)))
-                        ok = false;
+                    if ((!CSG.IsFloat(this.x)) || (!CSG.IsFloat(this.y))) ok = false;
                 }
                 if (!ok) {
                     throw new Error("wrong arguments");
                 }
             }
         }
-        Vector2D.fromAngle = function (radians) {
+
+        public static fromAngle(radians) {
             return CSG.Vector2D.fromAngleRadians(radians);
-        };
-        Vector2D.fromAngleDegrees = function (degrees) {
+        }
+
+        public static fromAngleDegrees(degrees) {
             var radians = Math.PI * degrees / 180;
             return CSG.Vector2D.fromAngleRadians(radians);
-        };
-        Vector2D.fromAngleRadians = function (radians) {
+        }
+
+        public static fromAngleRadians(radians) {
             return CSG.Vector2D.Create(Math.cos(radians), Math.sin(radians));
-        };
+        }
+
         // This does the same as new CSG.Vector2D(x,y) but it doesn't go through the constructor
         // and the parameters are not validated. Is much faster.
-        Vector2D.Create = function (x, y) {
-            var result = Object.create(CSG.Vector2D.prototype);
+        public static Create(x, y) {
+            var result = <Vector2D>Object.create(CSG.Vector2D.prototype);
             result.x = x;
             result.y = y;
             return result;
-        };
+        }
+
+    
         // extend to a 3D vector by adding a z coordinate:
-        Vector2D.prototype.toVector3D = function (z) {
+        public toVector3D(z) {
             return new CSG.Vector3D(this.x, this.y, z);
-        };
-        Vector2D.prototype.equals = function (a) {
+        }
+
+        public equals(a: Vector2D) {
             return (this.x == a.x) && (this.y == a.y);
-        };
-        Vector2D.prototype.clone = function () {
+        }
+
+        public clone() {
             return CSG.Vector2D.Create(this.x, this.y);
-        };
-        Vector2D.prototype.negated = function () {
+        }
+
+        public negated() {
             return CSG.Vector2D.Create(-this.x, -this.y);
-        };
-        Vector2D.prototype.plus = function (a) {
+        }
+
+        public plus(a: Vector2D) {
             return CSG.Vector2D.Create(this.x + a.x, this.y + a.y);
-        };
-        Vector2D.prototype.minus = function (a) {
+        }
+
+        public minus(a: Vector2D) {
             return CSG.Vector2D.Create(this.x - a.x, this.y - a.y);
-        };
-        Vector2D.prototype.times = function (a) {
+        }
+
+        public times(a) {
             return CSG.Vector2D.Create(this.x * a, this.y * a);
-        };
-        Vector2D.prototype.dividedBy = function (a) {
+        }
+
+        public dividedBy(a) {
             return CSG.Vector2D.Create(this.x / a, this.y / a);
-        };
-        Vector2D.prototype.dot = function (a) {
+        }
+
+        public dot(a: Vector2D) {
             return this.x * a.x + this.y * a.y;
-        };
-        Vector2D.prototype.lerp = function (a, t) {
+        }
+
+        public lerp(a, t) {
             return this.plus(a.minus(this).times(t));
-        };
-        Vector2D.prototype.length = function () {
+        }
+
+        public length() {
             return Math.sqrt(this.dot(this));
-        };
-        Vector2D.prototype.distanceTo = function (a) {
+        }
+
+        public distanceTo(a) {
             return this.minus(a).length();
-        };
-        Vector2D.prototype.distanceToSquared = function (a) {
+        }
+
+        public distanceToSquared(a) {
             return this.minus(a).lengthSquared();
-        };
-        Vector2D.prototype.lengthSquared = function () {
+        }
+
+        public lengthSquared() {
             return this.dot(this);
-        };
-        Vector2D.prototype.unit = function () {
+        }
+
+        public unit() {
             return this.dividedBy(this.length());
-        };
-        Vector2D.prototype.cross = function (a) {
+        }
+
+        public cross(a: Vector2D) {
             return this.x * a.y - this.y * a.x;
-        };
+        }
+
         // returns the vector rotated by 90 degrees clockwise
-        Vector2D.prototype.normal = function () {
+        public normal() {
             return CSG.Vector2D.Create(this.y, -this.x);
-        };
+        }
+
         // Right multiply by a 4x4 matrix (the vector is interpreted as a row vector)
         // Returns a new CSG.Vector2D
-        Vector2D.prototype.multiply4x4 = function (matrix4x4) {
+        public multiply4x4(matrix4x4) {
             return matrix4x4.leftMultiply1x2Vector(this);
-        };
-        Vector2D.prototype.transform = function (matrix4x4) {
+        }
+
+        public transform(matrix4x4) {
             return matrix4x4.leftMultiply1x2Vector(this);
-        };
-        Vector2D.prototype.angle = function () {
+        }
+
+        public angle() {
             return this.angleRadians();
-        };
-        Vector2D.prototype.angleDegrees = function () {
+        }
+
+        public angleDegrees() {
             var radians = this.angleRadians();
             return 180 * radians / Math.PI;
-        };
-        Vector2D.prototype.angleRadians = function () {
+        }
+
+        public angleRadians() {
             // y=sin, x=cos
             return Math.atan2(this.y, this.x);
-        };
-        Vector2D.prototype.min = function (p) {
-            return CSG.Vector2D.Create(Math.min(this.x, p.x), Math.min(this.y, p.y));
-        };
-        Vector2D.prototype.max = function (p) {
-            return CSG.Vector2D.Create(Math.max(this.x, p.x), Math.max(this.y, p.y));
-        };
-        Vector2D.prototype.toString = function () {
+        }
+
+        public min(p: Vector2D) {
+            return CSG.Vector2D.Create(
+                Math.min(this.x, p.x), Math.min(this.y, p.y));
+        }
+
+        public max(p: Vector2D) {
+            return CSG.Vector2D.Create(
+                Math.max(this.x, p.x), Math.max(this.y, p.y));
+        }
+
+        public toString() {
             return "(" + this.x.toFixed(2) + ", " + this.y.toFixed(2) + ")";
-        };
-        Vector2D.prototype.abs = function () {
+        }
+
+        public abs() {
             return CSG.Vector2D.Create(Math.abs(this.x), Math.abs(this.y));
-        };
-        return Vector2D;
-    })(CxG);
-    CSG.Vector2D = Vector2D;
+        }
+
+    }
+
+
     // # class Line2D
     // Represents a directional line in 2D space
     // A line is parametrized by its normal vector (perpendicular to the line, rotated 90 degrees counter clockwise)
     // and w. The line passes through the point <normal>.times(w).
     // normal must be a unit vector!
     // Equation: p is on line if normal.dot(p)==w
-    var Line2D = (function (_super) {
-        __extends(Line2D, _super);
-        function Line2D(normal, w) {
-            _super.call(this);
-            this.normal = normal;
-            this.w = w;
+    export class Line2D extends CxG {
+        constructor(public normal: Vector2D, public w: number) {
+            super();
             normal = new CSG.Vector2D(normal);
             w = parseFloat(w.toString());
             var l = normal.length();
@@ -3956,39 +4228,47 @@ var CSG;
             this.normal = normal;
             this.w = w;
         }
-        Line2D.fromPoints = function (p1, p2) {
+
+        public static fromPoints(p1, p2) {
             p1 = new CSG.Vector2D(p1);
             p2 = new CSG.Vector2D(p2);
             var direction = p2.minus(p1);
             var normal = direction.normal().negated().unit();
             var w = p1.dot(normal);
             return new CSG.Line2D(normal, w);
-        };
+        }
+
+    
         // same line but opposite direction:
-        Line2D.prototype.reverse = function () {
+        public reverse() {
             return new CSG.Line2D(this.normal.negated(), -this.w);
-        };
-        Line2D.prototype.equals = function (l) {
+        }
+
+        public equals(l) {
             return (l.normal.equals(this.normal) && (l.w == this.w));
-        };
-        Line2D.prototype.origin = function () {
+        }
+
+        public origin() {
             return this.normal.times(this.w);
-        };
-        Line2D.prototype.direction = function () {
+        }
+
+        public direction() {
             return this.normal.normal();
-        };
-        Line2D.prototype.xAtY = function (y) {
+        }
+
+        public xAtY(y) {
             // (py == y) && (normal * p == w)
             // -> px = (w - normal._y * y) / normal.x
             var x = (this.w - this.normal.y * y) / this.normal.x;
             return x;
-        };
-        Line2D.prototype.absDistanceToPoint = function (point) {
+        }
+
+        public absDistanceToPoint(point) {
             point = new CSG.Vector2D(point);
             var point_projected = point.dot(this.normal);
             var distance = Math.abs(point_projected - this.w);
             return distance;
-        };
+        }
         /*FIXME: has error - origin is not defined, the method is never used
          closestPoint: function(point) {
              point = new CSG.Vector2D(point);
@@ -3996,13 +4276,15 @@ var CSG;
              return origin.plus(vector);
          },
          */
+
         // intersection between two lines, returns point as Vector2D
-        Line2D.prototype.intersectWithLine = function (line2d) {
+        public intersectWithLine(line2d) {
             var point = CSG.solve2Linear(this.normal.x, this.normal.y, line2d.normal.x, line2d.normal.y, this.w, line2d.w);
             var result = new CSG.Vector2D(point); // make  vector2d
             return result;
-        };
-        Line2D.prototype.transform = function (matrix4x4) {
+        }
+
+        public transform(matrix4x4) {
             var origin = new CSG.Vector2D(0, 0);
             var pointOnPlane = this.normal.times(this.w);
             var neworigin = origin.multiply4x4(matrix4x4);
@@ -4011,38 +4293,39 @@ var CSG;
             var newpointOnPlane = pointOnPlane.multiply4x4(matrix4x4);
             var neww = newnormal.dot(newpointOnPlane);
             return new CSG.Line2D(newnormal, neww);
-        };
-        return Line2D;
-    })(CxG);
-    CSG.Line2D = Line2D;
+        }
+
+    }
+
     // # class Line3D
     // Represents a line in 3D space
     // direction must be a unit vector
     // point is a random point on the line
-    var Line3D = (function (_super) {
-        __extends(Line3D, _super);
-        function Line3D(point, direction) {
-            _super.call(this);
-            this.point = point;
-            this.direction = direction;
+    export class Line3D extends CxG {
+
+        constructor(public point: Vector3D, public direction: Vector3D) {
+            super();
             point = new CSG.Vector3D(point);
             direction = new CSG.Vector3D(direction);
             this.point = point;
             this.direction = direction.unit();
         }
-        Line3D.fromPoints = function (p1, p2) {
+
+        public static fromPoints(p1, p2) {
             p1 = new CSG.Vector3D(p1);
             p2 = new CSG.Vector3D(p2);
             var direction = p2.minus(p1);
             return new CSG.Line3D(p1, direction);
-        };
-        Line3D.fromPlanes = function (p1, p2) {
+        }
+
+        public static fromPlanes(p1, p2) {
             var direction = p1.normal.cross(p2.normal);
             var l = direction.length();
             if (l < 1e-10) {
                 throw new Error("Parallel planes");
             }
             direction = direction.times(1.0 / l);
+
             var mabsx = Math.abs(direction.x);
             var mabsy = Math.abs(direction.y);
             var mabsz = Math.abs(direction.z);
@@ -4052,75 +4335,83 @@ var CSG;
                 // find a point p for which x is zero:
                 var r = CSG.solve2Linear(p1.normal.y, p1.normal.z, p2.normal.y, p2.normal.z, p1.w, p2.w);
                 origin = new CSG.Vector3D(0, r[0], r[1]);
-            }
-            else if ((mabsy >= mabsx) && (mabsy >= mabsz)) {
+            } else if ((mabsy >= mabsx) && (mabsy >= mabsz)) {
                 // find a point p for which y is zero:
                 var r = CSG.solve2Linear(p1.normal.x, p1.normal.z, p2.normal.x, p2.normal.z, p1.w, p2.w);
                 origin = new CSG.Vector3D(r[0], 0, r[1]);
-            }
-            else {
+            } else {
                 // find a point p for which z is zero:
                 var r = CSG.solve2Linear(p1.normal.x, p1.normal.y, p2.normal.x, p2.normal.y, p1.w, p2.w);
                 origin = new CSG.Vector3D(r[0], r[1], 0);
             }
             return new CSG.Line3D(origin, direction);
-        };
-        Line3D.prototype.intersectWithPlane = function (plane) {
+        }
+
+
+        public intersectWithPlane(plane) {
             // plane: plane.normal * p = plane.w
             // line: p=line.point + labda * line.direction
             var labda = (plane.w - plane.normal.dot(this.point)) / plane.normal.dot(this.direction);
             var point = this.point.plus(this.direction.times(labda));
             return point;
-        };
-        Line3D.prototype.clone = function (line) {
+        }
+
+        public clone(line) {
             return new CSG.Line3D(this.point.clone(), this.direction.clone());
-        };
-        Line3D.prototype.reverse = function () {
+        }
+
+        public reverse() {
             return new CSG.Line3D(this.point.clone(), this.direction.negated());
-        };
-        Line3D.prototype.transform = function (matrix4x4) {
+        }
+
+        public transform(matrix4x4) {
             var newpoint = this.point.multiply4x4(matrix4x4);
             var pointPlusDirection = this.point.plus(this.direction);
             var newPointPlusDirection = pointPlusDirection.multiply4x4(matrix4x4);
             var newdirection = newPointPlusDirection.minus(newpoint);
             return new CSG.Line3D(newpoint, newdirection);
-        };
-        Line3D.prototype.closestPointOnLine = function (point) {
+        }
+
+        public closestPointOnLine(point) {
             point = new CSG.Vector3D(point);
             var t = point.minus(this.point).dot(this.direction) / this.direction.dot(this.direction);
             var closestpoint = this.point.plus(this.direction.times(t));
             return closestpoint;
-        };
-        Line3D.prototype.distanceToPoint = function (point) {
+        }
+
+        public distanceToPoint(point) {
             point = new CSG.Vector3D(point);
             var closestpoint = this.closestPointOnLine(point);
             var distancevector = point.minus(closestpoint);
             var distance = distancevector.length();
             return distance;
-        };
-        Line3D.prototype.equals = function (line3d) {
-            if (!this.direction.equals(line3d.direction))
-                return false;
+        }
+
+        public equals(line3d) {
+            if (!this.direction.equals(line3d.direction)) return false;
             var distance = this.distanceToPoint(line3d.point);
-            if (distance > 1e-8)
-                return false;
+            if (distance > 1e-8) return false;
             return true;
-        };
-        return Line3D;
-    })(CxG);
-    CSG.Line3D = Line3D;
+        }
+
+    }
+
+
     // # class OrthoNormalBasis
     // Reprojects points on a 3D plane onto a 2D plane
     // or from a 2D plane back onto the 3D plane
-    var OrthoNormalBasis = (function (_super) {
-        __extends(OrthoNormalBasis, _super);
-        function OrthoNormalBasis(plane, rightvector) {
-            _super.call(this);
+    export class OrthoNormalBasis extends CxG {
+        public v;
+        public u;
+        public plane: Plane;
+        public planeorigin;
+
+        constructor(plane: Plane, rightvector?: Vector3D) {
+            super();
             if (arguments.length < 2) {
                 // choose an arbitrary right hand vector, making sure it is somewhat orthogonal to the plane normal:
                 rightvector = plane.normal.randomNonParallelVector();
-            }
-            else {
+            } else {
                 rightvector = new CSG.Vector3D(rightvector);
             }
             this.v = plane.normal.cross(rightvector).unit();
@@ -4128,52 +4419,7 @@ var CSG;
             this.plane = plane;
             this.planeorigin = plane.normal.times(plane.w);
         }
-        OrthoNormalBasis.prototype.getProjectionMatrix = function () {
-            return new CSG.Matrix4x4([
-                this.u.x, this.v.x, this.plane.normal.x, 0,
-                this.u.y, this.v.y, this.plane.normal.y, 0,
-                this.u.z, this.v.z, this.plane.normal.z, 0,
-                0, 0, -this.plane.w, 1
-            ]);
-        };
-        OrthoNormalBasis.prototype.getInverseProjectionMatrix = function () {
-            var p = this.plane.normal.times(this.plane.w);
-            return new CSG.Matrix4x4([
-                this.u.x, this.u.y, this.u.z, 0,
-                this.v.x, this.v.y, this.v.z, 0,
-                this.plane.normal.x, this.plane.normal.y, this.plane.normal.z, 0,
-                p.x, p.y, p.z, 1
-            ]);
-        };
-        OrthoNormalBasis.prototype.to2D = function (vec3) {
-            return new CSG.Vector2D(vec3.dot(this.u), vec3.dot(this.v));
-        };
-        OrthoNormalBasis.prototype.to3D = function (vec2) {
-            return this.planeorigin.plus(this.u.times(vec2.x)).plus(this.v.times(vec2.y));
-        };
-        OrthoNormalBasis.prototype.line3Dto2D = function (line3d) {
-            var a = line3d.point;
-            var b = line3d.direction.plus(a);
-            var a2d = this.to2D(a);
-            var b2d = this.to2D(b);
-            return CSG.Line2D.fromPoints(a2d, b2d);
-        };
-        OrthoNormalBasis.prototype.line2Dto3D = function (line2d) {
-            var a = line2d.origin();
-            var b = line2d.direction().plus(a);
-            var a3d = this.to3D(a);
-            var b3d = this.to3D(b);
-            return CSG.Line3D.fromPoints(a3d, b3d);
-        };
-        OrthoNormalBasis.prototype.transform = function (matrix4x4) {
-            // todo: this may not work properly in case of mirroring
-            var newplane = this.plane.transform(matrix4x4);
-            var rightpoint_transformed = this.u.transform(matrix4x4);
-            var origin_transformed = new CSG.Vector3D(0, 0, 0).transform(matrix4x4);
-            var newrighthandvector = rightpoint_transformed.minus(origin_transformed);
-            var newbasis = new CSG.OrthoNormalBasis(newplane, newrighthandvector);
-            return newbasis;
-        };
+
         // Get an orthonormal basis for the standard XYZ planes.
         // Parameters: the names of two 3D axes. The 2d x axis will map to the first given 3D axis, the 2d y 
         // axis will map to the second.
@@ -4181,118 +4427,148 @@ var CSG;
         // For example: CSG.OrthoNormalBasis.GetCartesian("-Y","Z")
         //   will return an orthonormal basis where the 2d X axis maps to the 3D inverted Y axis, and
         //   the 2d Y axis maps to the 3D Z axis.
-        OrthoNormalBasis.GetCartesian = function (xaxisid, yaxisid) {
+        public static GetCartesian = function (xaxisid, yaxisid) {
             var axisid = xaxisid + "/" + yaxisid;
             var planenormal, rightvector;
             if (axisid == "X/Y") {
                 planenormal = [0, 0, 1];
                 rightvector = [1, 0, 0];
-            }
-            else if (axisid == "Y/-X") {
+            } else if (axisid == "Y/-X") {
                 planenormal = [0, 0, 1];
                 rightvector = [0, 1, 0];
-            }
-            else if (axisid == "-X/-Y") {
+            } else if (axisid == "-X/-Y") {
                 planenormal = [0, 0, 1];
                 rightvector = [-1, 0, 0];
-            }
-            else if (axisid == "-Y/X") {
+            } else if (axisid == "-Y/X") {
                 planenormal = [0, 0, 1];
                 rightvector = [0, -1, 0];
-            }
-            else if (axisid == "-X/Y") {
+            } else if (axisid == "-X/Y") {
                 planenormal = [0, 0, -1];
                 rightvector = [-1, 0, 0];
-            }
-            else if (axisid == "-Y/-X") {
+            } else if (axisid == "-Y/-X") {
                 planenormal = [0, 0, -1];
                 rightvector = [0, -1, 0];
-            }
-            else if (axisid == "X/-Y") {
+            } else if (axisid == "X/-Y") {
                 planenormal = [0, 0, -1];
                 rightvector = [1, 0, 0];
-            }
-            else if (axisid == "Y/X") {
+            } else if (axisid == "Y/X") {
                 planenormal = [0, 0, -1];
                 rightvector = [0, 1, 0];
-            }
-            else if (axisid == "X/Z") {
+            } else if (axisid == "X/Z") {
                 planenormal = [0, -1, 0];
                 rightvector = [1, 0, 0];
-            }
-            else if (axisid == "Z/-X") {
+            } else if (axisid == "Z/-X") {
                 planenormal = [0, -1, 0];
                 rightvector = [0, 0, 1];
-            }
-            else if (axisid == "-X/-Z") {
+            } else if (axisid == "-X/-Z") {
                 planenormal = [0, -1, 0];
                 rightvector = [-1, 0, 0];
-            }
-            else if (axisid == "-Z/X") {
+            } else if (axisid == "-Z/X") {
                 planenormal = [0, -1, 0];
                 rightvector = [0, 0, -1];
-            }
-            else if (axisid == "-X/Z") {
+            } else if (axisid == "-X/Z") {
                 planenormal = [0, 1, 0];
                 rightvector = [-1, 0, 0];
-            }
-            else if (axisid == "-Z/-X") {
+            } else if (axisid == "-Z/-X") {
                 planenormal = [0, 1, 0];
                 rightvector = [0, 0, -1];
-            }
-            else if (axisid == "X/-Z") {
+            } else if (axisid == "X/-Z") {
                 planenormal = [0, 1, 0];
                 rightvector = [1, 0, 0];
-            }
-            else if (axisid == "Z/X") {
+            } else if (axisid == "Z/X") {
                 planenormal = [0, 1, 0];
                 rightvector = [0, 0, 1];
-            }
-            else if (axisid == "Y/Z") {
+            } else if (axisid == "Y/Z") {
                 planenormal = [1, 0, 0];
                 rightvector = [0, 1, 0];
-            }
-            else if (axisid == "Z/-Y") {
+            } else if (axisid == "Z/-Y") {
                 planenormal = [1, 0, 0];
                 rightvector = [0, 0, 1];
-            }
-            else if (axisid == "-Y/-Z") {
+            } else if (axisid == "-Y/-Z") {
                 planenormal = [1, 0, 0];
                 rightvector = [0, -1, 0];
-            }
-            else if (axisid == "-Z/Y") {
+            } else if (axisid == "-Z/Y") {
                 planenormal = [1, 0, 0];
                 rightvector = [0, 0, -1];
-            }
-            else if (axisid == "-Y/Z") {
+            } else if (axisid == "-Y/Z") {
                 planenormal = [-1, 0, 0];
                 rightvector = [0, -1, 0];
-            }
-            else if (axisid == "-Z/-Y") {
+            } else if (axisid == "-Z/-Y") {
                 planenormal = [-1, 0, 0];
                 rightvector = [0, 0, -1];
-            }
-            else if (axisid == "Y/-Z") {
+            } else if (axisid == "Y/-Z") {
                 planenormal = [-1, 0, 0];
                 rightvector = [0, 1, 0];
-            }
-            else if (axisid == "Z/Y") {
+            } else if (axisid == "Z/Y") {
                 planenormal = [-1, 0, 0];
                 rightvector = [0, 0, 1];
-            }
-            else {
+            } else {
                 throw new Error("CSG.OrthoNormalBasis.GetCartesian: invalid combination of axis identifiers. Should pass two string arguments from [X,Y,Z,-X,-Y,-Z], being two different axes.");
             }
             return new CSG.OrthoNormalBasis(new CSG.Plane(new CSG.Vector3D(planenormal), 0), new CSG.Vector3D(rightvector));
-        };
+        }
+
         // The z=0 plane, with the 3D x and y vectors mapped to the 2D x and y vector
-        OrthoNormalBasis.Z0Plane = function () {
+        public static Z0Plane = function () {
             var plane = new CSG.Plane(new CSG.Vector3D([0, 0, 1]), 0);
             return new CSG.OrthoNormalBasis(plane, new CSG.Vector3D([1, 0, 0]));
-        };
-        return OrthoNormalBasis;
-    })(CxG);
-    CSG.OrthoNormalBasis = OrthoNormalBasis;
+        }
+
+        public getProjectionMatrix() {
+            return new CSG.Matrix4x4([
+                this.u.x, this.v.x, this.plane.normal.x, 0,
+                this.u.y, this.v.y, this.plane.normal.y, 0,
+                this.u.z, this.v.z, this.plane.normal.z, 0,
+                0, 0, -this.plane.w, 1
+            ]);
+        }
+
+        public getInverseProjectionMatrix() {
+            var p = this.plane.normal.times(this.plane.w);
+            return new CSG.Matrix4x4([
+                this.u.x, this.u.y, this.u.z, 0,
+                this.v.x, this.v.y, this.v.z, 0,
+                this.plane.normal.x, this.plane.normal.y, this.plane.normal.z, 0,
+                p.x, p.y, p.z, 1
+            ]);
+        }
+
+        public to2D(vec3) {
+            return new CSG.Vector2D(vec3.dot(this.u), vec3.dot(this.v));
+        }
+
+        public to3D(vec2) {
+            return this.planeorigin.plus(this.u.times(vec2.x)).plus(this.v.times(vec2.y));
+        }
+
+        public line3Dto2D(line3d) {
+            var a = line3d.point;
+            var b = line3d.direction.plus(a);
+            var a2d = this.to2D(a);
+            var b2d = this.to2D(b);
+            return CSG.Line2D.fromPoints(a2d, b2d);
+        }
+
+        public line2Dto3D(line2d) {
+            var a = line2d.origin();
+            var b = line2d.direction().plus(a);
+            var a3d = this.to3D(a);
+            var b3d = this.to3D(b);
+            return CSG.Line3D.fromPoints(a3d, b3d);
+        }
+
+        public transform(matrix4x4) {
+            // todo: this may not work properly in case of mirroring
+            var newplane = this.plane.transform(matrix4x4);
+            var rightpoint_transformed = this.u.transform(matrix4x4);
+            var origin_transformed = new CSG.Vector3D(0, 0, 0).transform(matrix4x4);
+            var newrighthandvector = rightpoint_transformed.minus(origin_transformed);
+            var newbasis = new CSG.OrthoNormalBasis(newplane, newrighthandvector);
+            return newbasis;
+        }
+
+    }
+
     function insertSorted(array, element, comparefunc) {
         var leftbound = 0;
         var rightbound = array.length;
@@ -4300,19 +4576,20 @@ var CSG;
             var testindex = Math.floor((leftbound + rightbound) / 2);
             var testelement = array[testindex];
             var compareresult = comparefunc(element, testelement);
-            if (compareresult > 0) {
+            if (compareresult > 0) // element > testelement
+            {
                 leftbound = testindex + 1;
-            }
-            else {
+            } else {
                 rightbound = testindex;
             }
         }
         array.splice(leftbound, 0, element);
     }
+
     // Get the x coordinate of a point with a certain y coordinate, interpolated between two
     // points (CSG.Vector2D).
     // Interpolation is robust even if the points have the same y coordinate
-    function interpolateBetween2DPointsForY(point1, point2, y) {
+    export function interpolateBetween2DPointsForY(point1, point2, y) {
         var f1 = y - point1.y;
         var f2 = point2.y - point1.y;
         if (f2 < 0) {
@@ -4322,24 +4599,22 @@ var CSG;
         var t;
         if (f1 <= 0) {
             t = 0.0;
-        }
-        else if (f1 >= f2) {
+        } else if (f1 >= f2) {
             t = 1.0;
-        }
-        else if (f2 < 1e-10) {
+        } else if (f2 < 1e-10) {
             t = 0.5;
-        }
-        else {
+        } else {
             t = f1 / f2;
         }
         var result = point1.x + t * (point2.x - point1.x);
         return result;
     }
-    CSG.interpolateBetween2DPointsForY = interpolateBetween2DPointsForY;
+
     // Retesselation function for a set of coplanar polygons. See the introduction at the top of
     // this file.
-    function reTesselateCoplanarPolygons(sourcepolygons, destpolygons) {
+    export function reTesselateCoplanarPolygons(sourcepolygons, destpolygons) {
         var EPS = 1e-5;
+
         var numpolygons = sourcepolygons.length;
         if (numpolygons > 0) {
             var plane = sourcepolygons[0].plane;
@@ -4349,8 +4624,10 @@ var CSG;
             var polygontopvertexindexes = []; // array of indexes of topmost vertex per polygon
             var topy2polygonindexes = {};
             var ycoordinatetopolygonindexes = {};
+
             var xcoordinatebins = {};
             var ycoordinatebins = {};
+
             // convert all polygon vertices to 2D
             // Make a list of all encountered y coordinates
             // And build a map of all polygons that have a vertex at a certain y coordinate:
@@ -4370,14 +4647,11 @@ var CSG;
                         var newy;
                         if (ycoordinatebin in ycoordinatebins) {
                             newy = ycoordinatebins[ycoordinatebin];
-                        }
-                        else if (ycoordinatebin + 1 in ycoordinatebins) {
+                        } else if (ycoordinatebin + 1 in ycoordinatebins) {
                             newy = ycoordinatebins[ycoordinatebin + 1];
-                        }
-                        else if (ycoordinatebin - 1 in ycoordinatebins) {
+                        } else if (ycoordinatebin - 1 in ycoordinatebins) {
                             newy = ycoordinatebins[ycoordinatebin - 1];
-                        }
-                        else {
+                        } else {
                             newy = pos2d.y;
                             ycoordinatebins[ycoordinatebin] = pos2d.y;
                         }
@@ -4402,8 +4676,7 @@ var CSG;
                         vertices2d = [];
                         numvertices = 0;
                         minindex = -1;
-                    }
-                    else {
+                    } else {
                         if (!(miny in topy2polygonindexes)) {
                             topy2polygonindexes[miny] = [];
                         }
@@ -4417,9 +4690,9 @@ var CSG;
                 polygontopvertexindexes.push(minindex);
             }
             var ycoordinates = [];
-            for (var ycoordinate in ycoordinatetopolygonindexes)
-                ycoordinates.push(ycoordinate);
+            for (var ycoordinate in ycoordinatetopolygonindexes) ycoordinates.push(ycoordinate);
             ycoordinates.sort(CSG.fnNumberSort);
+
             // Now we will iterate over all y coordinates, from lowest to highest y coordinate
             // activepolygons: source polygons that are 'active', i.e. intersect with our y coordinate
             //   Is sorted so the polygons are in left to right order
@@ -4437,6 +4710,7 @@ var CSG;
                 var newoutpolygonrow = [];
                 var ycoordinate_as_string = ycoordinates[yindex];
                 var ycoordinate2 = Number(ycoordinate_as_string);
+
                 // update activepolygons for this y coordinate:
                 // - Remove any polygons that end at this y coordinate
                 // - update leftvertexindex and rightvertexindex (which point to the current vertex index
@@ -4455,15 +4729,12 @@ var CSG;
                         // See if we need to increase leftvertexindex or decrease rightvertexindex:
                         while (true) {
                             var nextleftvertexindex = newleftvertexindex + 1;
-                            if (nextleftvertexindex >= numvertices)
-                                nextleftvertexindex = 0;
-                            if (vertices2d[nextleftvertexindex].y != ycoordinate2)
-                                break;
+                            if (nextleftvertexindex >= numvertices) nextleftvertexindex = 0;
+                            if (vertices2d[nextleftvertexindex].y != ycoordinate2) break;
                             newleftvertexindex = nextleftvertexindex;
                         }
                         var nextrightvertexindex = newrightvertexindex - 1;
-                        if (nextrightvertexindex < 0)
-                            nextrightvertexindex = numvertices - 1;
+                        if (nextrightvertexindex < 0) nextrightvertexindex = numvertices - 1;
                         if (vertices2d[nextrightvertexindex].y == ycoordinate2) {
                             newrightvertexindex = nextrightvertexindex;
                         }
@@ -4472,19 +4743,16 @@ var CSG;
                             // This means that this is the bottom point of the polygon. We'll remove it:
                             activepolygons.splice(activepolygonindex, 1);
                             --activepolygonindex;
-                        }
-                        else {
+                        } else {
                             activepolygon.leftvertexindex = newleftvertexindex;
                             activepolygon.rightvertexindex = newrightvertexindex;
                             activepolygon.topleft = vertices2d[newleftvertexindex];
                             activepolygon.topright = vertices2d[newrightvertexindex];
                             var nextleftvertexindex = newleftvertexindex + 1;
-                            if (nextleftvertexindex >= numvertices)
-                                nextleftvertexindex = 0;
+                            if (nextleftvertexindex >= numvertices) nextleftvertexindex = 0;
                             activepolygon.bottomleft = vertices2d[nextleftvertexindex];
                             var nextrightvertexindex = newrightvertexindex - 1;
-                            if (nextrightvertexindex < 0)
-                                nextrightvertexindex = numvertices - 1;
+                            if (nextrightvertexindex < 0) nextrightvertexindex = numvertices - 1;
                             activepolygon.bottomright = vertices2d[nextrightvertexindex];
                         }
                     } // if polygon has corner here
@@ -4494,8 +4762,8 @@ var CSG;
                     // last row, all polygons must be finished here:
                     activepolygons = [];
                     nextycoordinate = null;
-                }
-                else {
+                } else // yindex < ycoordinates.length-1
+                {
                     nextycoordinate = Number(ycoordinates[yindex + 1]);
                     var middleycoordinate = 0.5 * (ycoordinate2 + nextycoordinate);
                     // update activepolygons by adding any polygons that start here:
@@ -4510,31 +4778,23 @@ var CSG;
                         var topleftvertexindex = topvertexindex;
                         while (true) {
                             var i2 = topleftvertexindex + 1;
-                            if (i2 >= numvertices)
-                                i2 = 0;
-                            if (vertices2d[i2].y != ycoordinate2)
-                                break;
-                            if (i2 == topvertexindex)
-                                break; // should not happen, but just to prevent endless loops
+                            if (i2 >= numvertices) i2 = 0;
+                            if (vertices2d[i2].y != ycoordinate2) break;
+                            if (i2 == topvertexindex) break; // should not happen, but just to prevent endless loops
                             topleftvertexindex = i2;
                         }
                         var toprightvertexindex = topvertexindex;
                         while (true) {
                             var i = toprightvertexindex - 1;
-                            if (i < 0)
-                                i = numvertices - 1;
-                            if (vertices2d[i].y != ycoordinate2)
-                                break;
-                            if (i == topleftvertexindex)
-                                break; // should not happen, but just to prevent endless loops
+                            if (i < 0) i = numvertices - 1;
+                            if (vertices2d[i].y != ycoordinate2) break;
+                            if (i == topleftvertexindex) break; // should not happen, but just to prevent endless loops
                             toprightvertexindex = i;
                         }
                         var nextleftvertexindex = topleftvertexindex + 1;
-                        if (nextleftvertexindex >= numvertices)
-                            nextleftvertexindex = 0;
+                        if (nextleftvertexindex >= numvertices) nextleftvertexindex = 0;
                         var nextrightvertexindex = toprightvertexindex - 1;
-                        if (nextrightvertexindex < 0)
-                            nextrightvertexindex = numvertices - 1;
+                        if (nextrightvertexindex < 0) nextrightvertexindex = numvertices - 1;
                         var newactivepolygon = {
                             polygonindex: polygonindex,
                             leftvertexindex: topleftvertexindex,
@@ -4545,12 +4805,12 @@ var CSG;
                             bottomright: vertices2d[nextrightvertexindex],
                         };
                         insertSorted(activepolygons, newactivepolygon, function (el1, el2) {
-                            var x1 = CSG.interpolateBetween2DPointsForY(el1.topleft, el1.bottomleft, middleycoordinate);
-                            var x2 = CSG.interpolateBetween2DPointsForY(el2.topleft, el2.bottomleft, middleycoordinate);
-                            if (x1 > x2)
-                                return 1;
-                            if (x1 < x2)
-                                return -1;
+                            var x1 = CSG.interpolateBetween2DPointsForY(
+                                el1.topleft, el1.bottomleft, middleycoordinate);
+                            var x2 = CSG.interpolateBetween2DPointsForY(
+                                el2.topleft, el2.bottomleft, middleycoordinate);
+                            if (x1 > x2) return 1;
+                            if (x1 < x2) return -1;
                             return 0;
                         });
                     } // for(var polygonindex in startingpolygonindexes)
@@ -4564,6 +4824,7 @@ var CSG;
                         polygonindex = activepolygon.polygonindex;
                         vertices2d = polygonvertices2d[polygonindex];
                         numvertices = vertices2d.length;
+
                         var x = CSG.interpolateBetween2DPointsForY(activepolygon.topleft, activepolygon.bottomleft, ycoordinate2);
                         var topleft = CSG.Vector2D.Create(x, ycoordinate2);
                         x = CSG.interpolateBetween2DPointsForY(activepolygon.topright, activepolygon.bottomright, ycoordinate2);
@@ -4601,7 +4862,8 @@ var CSG;
                         for (var i = 0; i < newoutpolygonrow.length; i++) {
                             var thispolygon = newoutpolygonrow[i];
                             for (var ii = 0; ii < prevoutpolygonrow.length; ii++) {
-                                if (!matchedindexes[ii]) {
+                                if (!matchedindexes[ii]) // not already processed?
+                                {
                                     // We have a match if the sidelines are equal or if the top coordinates
                                     // are on the sidelines of the previous polygon
                                     var prevpolygon = prevoutpolygonrow[ii];
@@ -4667,8 +4929,7 @@ var CSG;
                                 // we have a horizontal line at the top:
                                 thispolygon.outpolygon.rightpoints.push(thispolygon.topright);
                             }
-                        }
-                        else {
+                        } else {
                             // continuation of a previous row
                             if (!thispolygon.leftlinecontinues) {
                                 thispolygon.outpolygon.leftpoints.push(thispolygon.topleft);
@@ -4683,7 +4944,7 @@ var CSG;
             } // for yindex
         } // if(numpolygons > 0)
     }
-    CSG.reTesselateCoplanarPolygons = reTesselateCoplanarPolygons;
+
     ////////////////////////////////
     // ## class fuzzyFactory
     // This class acts as a factory for objects. We can search for an object with approximately
@@ -4696,17 +4957,22 @@ var CSG;
     //   numdimensions: the number of parameters for each object
     //     for example for a 2D rectangle this would be 2
     //   tolerance: The maximum difference for each parameter allowed to be considered a match
-    var fuzzyFactory = (function () {
-        function fuzzyFactory(numdimensions, tolerance) {
+    export class fuzzyFactory {
+
+        public multiplier;
+        public lookuptable;
+
+        constructor(numdimensions, tolerance) {
             this.lookuptable = {};
             this.multiplier = 1.0 / tolerance;
         }
+        
         // var obj = f.lookupOrCreate([el1, el2, el3], function(elements) {/* create the new object */});
         // Performs a fuzzy lookup of the object with the specified elements.
         // If found, returns the existing object
         // If not found, calls the supplied callback function which should create a new object with
         // the specified properties. This object is inserted in the lookup database.
-        fuzzyFactory.prototype.lookupOrCreate = function (els, creatorCallback) {
+        public lookupOrCreate(els, creatorCallback) {
             var hash = "";
             var multiplier = this.multiplier;
             els.forEach(function (el) {
@@ -4715,8 +4981,7 @@ var CSG;
             });
             if (hash in this.lookuptable) {
                 return this.lookuptable[hash];
-            }
-            else {
+            } else {
                 var object = creatorCallback(els);
                 var hashparts = els.map(function (el) {
                     var q0 = Math.floor(el * multiplier);
@@ -4736,42 +5001,49 @@ var CSG;
                 }
                 return object;
             }
-        };
-        return fuzzyFactory;
-    })();
-    CSG.fuzzyFactory = fuzzyFactory;
+        }
+    }
+
     //////////////////////////////////////
-    var fuzzyCSGFactory = (function () {
-        function fuzzyCSGFactory() {
+    export class fuzzyCSGFactory {
+
+        public vertexfactory;
+        public planefactory;
+        public polygonsharedfactory;
+
+        constructor() {
             this.vertexfactory = new CSG.fuzzyFactory(3, 1e-5);
             this.planefactory = new CSG.fuzzyFactory(4, 1e-5);
             this.polygonsharedfactory = {};
         }
-        fuzzyCSGFactory.prototype.getPolygonShared = function (sourceshared) {
+
+        public getPolygonShared(sourceshared) {
             var hash = sourceshared.getHash();
             if (hash in this.polygonsharedfactory) {
                 return this.polygonsharedfactory[hash];
-            }
-            else {
+            } else {
                 this.polygonsharedfactory[hash] = sourceshared;
                 return sourceshared;
             }
-        };
-        fuzzyCSGFactory.prototype.getVertex = function (sourcevertex) {
+        }
+
+        public getVertex(sourcevertex: Vertex) {
             var elements = [sourcevertex.pos.x, sourcevertex.pos.y, sourcevertex.pos.z];
             var result = this.vertexfactory.lookupOrCreate(elements, function (els) {
                 return sourcevertex;
             });
             return result;
-        };
-        fuzzyCSGFactory.prototype.getPlane = function (sourceplane) {
+        }
+
+        public getPlane(sourceplane: Plane) {
             var elements = [sourceplane.normal.x, sourceplane.normal.y, sourceplane.normal.z, sourceplane.w];
             var result = this.planefactory.lookupOrCreate(elements, function (els) {
                 return sourceplane;
             });
             return result;
-        };
-        fuzzyCSGFactory.prototype.getPolygon = function (sourcepolygon) {
+        }
+
+        public getPolygon(sourcepolygon) {
             var newplane = this.getPlane(sourcepolygon.plane);
             var newshared = this.getPolygonShared(sourcepolygon.shared);
             var _this = this;
@@ -4797,8 +5069,9 @@ var CSG;
                 newvertices_dedup = [];
             }
             return new CSG.Polygon(newvertices_dedup, newshared, newplane);
-        };
-        fuzzyCSGFactory.prototype.getCSG = function (sourcecsg) {
+        }
+
+        public getCSG(sourcecsg) {
             var _this = this;
             var newpolygons = [];
             sourcecsg.polygons.forEach(function (polygon) {
@@ -4809,18 +5082,17 @@ var CSG;
                 }
             });
             return CSG.fromPolygons(newpolygons);
-        };
-        return fuzzyCSGFactory;
-    })();
-    CSG.fuzzyCSGFactory = fuzzyCSGFactory;
+        }
+    }
+
     //////////////////////////////////////
     // Tag factory: we can request a unique tag through CSG.getTag()
-    CSG.staticTag = 1;
-    function getTag() {
+    export var staticTag = 1;
+
+    export function getTag() {
         return CSG.staticTag++;
-    }
-    CSG.getTag = getTag;
-    ;
+    };
+
     //////////////////////////////////////
     // # Class Properties
     // This class is used to store properties of a solid
@@ -4828,50 +5100,61 @@ var CSG;
     // Whenever an affine transform is applied to the CSG solid, all its properties are
     // transformed as well.
     // The properties can be stored in a complex nested structure (using arrays and objects)
-    var Properties = (function () {
-        function Properties() {
-        }
-        Properties.prototype._transform = function (matrix4x4) {
+    export class Properties {
+
+        public cube: Properties;
+        public center;
+        public facecenters: any[];
+        public roundedCube: Properties;
+        public cylinder: Properties;
+        public start;
+        public end;
+        public facepointH;
+        public facepointH90;
+
+        public sphere: Properties;
+        public facepoint;
+
+        public roundedCylinder;
+
+        public _transform(matrix4x4) {
             var result = new CSG.Properties();
             CSG.Properties.transformObj(this, result, matrix4x4);
             return result;
-        };
-        Properties.prototype._merge = function (otherproperties) {
+        }
+
+        public _merge(otherproperties) {
             var result = new CSG.Properties();
             CSG.Properties.cloneObj(this, result);
             CSG.Properties.addFrom(result, otherproperties);
             return result;
-        };
-        Properties.transformObj = function (source, result, matrix4x4) {
+        }
+
+        public static transformObj(source, result, matrix4x4) {
             for (var propertyname in source) {
-                if (propertyname == "_transform")
-                    continue;
-                if (propertyname == "_merge")
-                    continue;
+                if (propertyname == "_transform") continue;
+                if (propertyname == "_merge") continue;
                 var propertyvalue = source[propertyname];
                 var transformed = propertyvalue;
                 if (typeof (propertyvalue) == "object") {
                     if (('transform' in propertyvalue) && (typeof (propertyvalue.transform) == "function")) {
                         transformed = propertyvalue.transform(matrix4x4);
-                    }
-                    else if (propertyvalue instanceof Array) {
+                    } else if (propertyvalue instanceof Array) {
                         transformed = [];
                         CSG.Properties.transformObj(propertyvalue, transformed, matrix4x4);
-                    }
-                    else if (propertyvalue instanceof CSG.Properties) {
+                    } else if (propertyvalue instanceof CSG.Properties) {
                         transformed = new CSG.Properties();
                         CSG.Properties.transformObj(propertyvalue, transformed, matrix4x4);
                     }
                 }
                 result[propertyname] = transformed;
             }
-        };
-        Properties.cloneObj = function (source, result) {
+        }
+
+        public static cloneObj(source, result) {
             for (var propertyname in source) {
-                if (propertyname == "_transform")
-                    continue;
-                if (propertyname == "_merge")
-                    continue;
+                if (propertyname == "_transform") continue;
+                if (propertyname == "_merge") continue;
                 var propertyvalue = source[propertyname];
                 var cloned = propertyvalue;
                 if (typeof (propertyvalue) == "object") {
@@ -4880,36 +5163,32 @@ var CSG;
                         for (var i = 0; i < propertyvalue.length; i++) {
                             cloned.push(propertyvalue[i]);
                         }
-                    }
-                    else if (propertyvalue instanceof CSG.Properties) {
+                    } else if (propertyvalue instanceof CSG.Properties) {
                         cloned = new CSG.Properties();
                         CSG.Properties.cloneObj(propertyvalue, cloned);
                     }
                 }
                 result[propertyname] = cloned;
             }
-        };
-        Properties.addFrom = function (result, otherproperties) {
+        }
+
+        public static addFrom(result, otherproperties) {
             for (var propertyname in otherproperties) {
-                if (propertyname == "_transform")
-                    continue;
-                if (propertyname == "_merge")
-                    continue;
+                if (propertyname == "_transform") continue;
+                if (propertyname == "_merge") continue;
                 if ((propertyname in result) &&
                     (typeof (result[propertyname]) == "object") &&
                     (result[propertyname] instanceof CSG.Properties) &&
                     (typeof (otherproperties[propertyname]) == "object") &&
                     (otherproperties[propertyname] instanceof CSG.Properties)) {
                     CSG.Properties.addFrom(result[propertyname], otherproperties[propertyname]);
-                }
-                else if (!(propertyname in result)) {
+                } else if (!(propertyname in result)) {
                     result[propertyname] = otherproperties[propertyname];
                 }
             }
-        };
-        return Properties;
-    })();
-    CSG.Properties = Properties;
+        }
+    }
+
     //////////////////////////////////////
     // # class Connector
     // A connector allows to attach two objects at predefined positions
@@ -4919,34 +5198,48 @@ var CSG;
     // and the horn is attached to the servo motor at the proper position.
     // Connectors are stored in the properties of a CSG solid so they are
     // ge the same transformations applied as the solid
-    var Connector = (function (_super) {
-        __extends(Connector, _super);
-        function Connector(point, axisvector, normalvector) {
-            _super.call(this);
+    export class Connector extends CxG {
+
+        public point: Vector3D;
+        public axisvector: Vector3D;
+        public normalvector: Vector3D;
+
+        constructor(point: number[], axisvector: Vector3D, normalvector: number[]);
+        constructor(point: number[], axisvector: number[], normalvector: number[]);
+        constructor(point: number[], axisvector: number[], normalvector: Vector3D);
+        constructor(point: Vector3D, axisvector: number[], normalvector: Vector3D);
+        constructor(point: Vector3D, axisvector: number[], normalvector: number[]);
+        constructor(point: Vector3D, axisvector: Vector3D, normalvector: Vector3D);
+        constructor(point: any, axisvector: any, normalvector: any) {
+            super();
             this.point = new CSG.Vector3D(point);
             this.axisvector = new CSG.Vector3D(axisvector).unit();
             this.normalvector = new CSG.Vector3D(normalvector).unit();
         }
-        Connector.prototype.normalized = function () {
+
+
+        public normalized() {
             var axisvector = this.axisvector.unit();
             // make the normal vector truly normal:
             var n = this.normalvector.cross(axisvector).unit();
             var normalvector = axisvector.cross(n);
             return new CSG.Connector(this.point, axisvector, normalvector);
-        };
-        Connector.prototype.transform = function (matrix4x4) {
+        }
+
+        public transform(matrix4x4) {
             var point = this.point.multiply4x4(matrix4x4);
             var axisvector = this.point.plus(this.axisvector).multiply4x4(matrix4x4).minus(point);
             var normalvector = this.point.plus(this.normalvector).multiply4x4(matrix4x4).minus(point);
             return new CSG.Connector(point, axisvector, normalvector);
-        };
+        }
+
         // Get the transformation matrix to connect this Connector to another connector
         //   other: a CSG.Connector to which this connector should be connected
         //   mirror: false: the 'axis' vectors of the connectors should point in the same direction
         //           true: the 'axis' vectors of the connectors should point in opposite direction
         //   normalrotation: degrees of rotation between the 'normal' vectors of the two
         //                   connectors
-        Connector.prototype.getTransformationTo = function (other, mirror, normalrotation) {
+        public getTransformationTo(other, mirror, normalrotation) {
             mirror = mirror ? true : false;
             normalrotation = normalrotation ? Number(normalrotation) : 0;
             var us = this.normalized();
@@ -4954,13 +5247,13 @@ var CSG;
             // shift to the origin:
             var transformation = CSG.Matrix4x4.translation(this.point.negated());
             // construct the plane crossing through the origin and the two axes:
-            var axesplane = CSG.Plane.anyPlaneFromVector3Ds(new CSG.Vector3D(0, 0, 0), us.axisvector, other.axisvector);
+            var axesplane = CSG.Plane.anyPlaneFromVector3Ds(
+                new CSG.Vector3D(0, 0, 0), us.axisvector, other.axisvector);
             var axesbasis = new CSG.OrthoNormalBasis(axesplane);
             var angle1 = axesbasis.to2D(us.axisvector).angle();
             var angle2 = axesbasis.to2D(other.axisvector).angle();
             var rotation = 180.0 * (angle2 - angle1) / Math.PI;
-            if (mirror)
-                rotation += 180.0;
+            if (mirror) rotation += 180.0;
             transformation = transformation.multiply(axesbasis.getProjectionMatrix());
             transformation = transformation.multiply(CSG.Matrix4x4.rotationZ(rotation));
             transformation = transformation.multiply(axesbasis.getInverseProjectionMatrix());
@@ -4980,76 +5273,96 @@ var CSG;
             transformation = transformation.multiply(CSG.Matrix4x4.translation(other.point));
             // var usAligned = us.transform(transformation);
             return transformation;
-        };
-        Connector.prototype.axisLine = function () {
+        }
+
+        public axisLine() {
             return new CSG.Line3D(this.point, this.axisvector);
-        };
+        }
+
         // creates a new Connector, with the connection point moved in the direction of the axisvector
-        Connector.prototype.extend = function (distance) {
+        public extend(distance) {
             var newpoint = this.point.plus(this.axisvector.unit().times(distance));
             return new CSG.Connector(newpoint, this.axisvector, this.normalvector);
-        };
-        return Connector;
-    })(CxG);
-    CSG.Connector = Connector;
-    var ConnectorList = (function () {
-        function ConnectorList(connectors) {
+        }
+
+    }
+
+    export class ConnectorList {
+        public connectors_: Connector[];
+        public closed: boolean;
+
+        constructor(connectors) {
             this.connectors_ = connectors ? connectors.slice() : [];
         }
-        ConnectorList.fromPath2D = function (path2D, arg1, arg2) {
+
+        public static defaultNormal = [0, 0, 1];
+
+        public static fromPath2D(path2D: CSG.Path2D, arg1, arg2) {
             if (arguments.length === 3) {
                 return CSG.ConnectorList._fromPath2DTangents(path2D, arg1, arg2);
-            }
-            else if (arguments.length == 2) {
+            } else if (arguments.length == 2) {
                 return CSG.ConnectorList._fromPath2DExplicit(path2D, arg1);
-            }
-            else {
+            } else {
                 throw ("call with path2D and either 2 direction vectors, or a function returning direction vectors");
             }
-        };
+        }
+
         /*
          * calculate the connector axisvectors by calculating the "tangent" for path2D.
          * This is undefined for start and end points, so axis for these have to be manually
          * provided.
          */
-        ConnectorList._fromPath2DTangents = function (path2D, start, end) {
+        public static _fromPath2DTangents(path2D, start, end) {
             // path2D
             var axis;
             var pathLen = path2D.points.length;
-            var result = new CSG.ConnectorList([new CSG.Connector(path2D.points[0], start, CSG.ConnectorList.defaultNormal)]);
+            var result = new CSG.ConnectorList([new CSG.Connector(path2D.points[0],
+                start, CSG.ConnectorList.defaultNormal)]);
             // middle points
             path2D.points.slice(1, pathLen - 1).forEach(function (p2, i) {
                 axis = path2D.points[i + 2].minus(path2D.points[i]).toVector3D(0);
-                result.appendConnector(new CSG.Connector(p2.toVector3D(0), axis, CSG.ConnectorList.defaultNormal));
+                result.appendConnector(new CSG.Connector(p2.toVector3D(0), axis,
+                    CSG.ConnectorList.defaultNormal));
             }, this);
-            result.appendConnector(new CSG.Connector(path2D.points[pathLen - 1], end, CSG.ConnectorList.defaultNormal));
+            result.appendConnector(new CSG.Connector(path2D.points[pathLen - 1], end,
+                CSG.ConnectorList.defaultNormal));
             result.closed = path2D.closed;
             return result;
-        };
+        }
+
         /*
          * angleIsh: either a static angle, or a function(point) returning an angle
          */
-        ConnectorList._fromPath2DExplicit = function (path2D, angleIsh) {
+        public static _fromPath2DExplicit(path2D, angleIsh) {
             function getAngle(angleIsh, pt, i) {
                 if (typeof angleIsh == 'function') {
                     angleIsh = angleIsh(pt, i);
                 }
                 return angleIsh;
             }
-            var result = new CSG.ConnectorList(path2D.points.map(function (p2, i) {
-                var v1 = CSG.Vector3D.Create(1, 0, 0);
-                var v2 = v1.rotateZ(getAngle(angleIsh, p2, i));
-                return new CSG.Connector(p2.toVector3D(0), v2, CSG.ConnectorList.defaultNormal);
-            }, this));
+            var result = new CSG.ConnectorList(
+                path2D.points.map(function (p2, i) {
+                    var v1 = CSG.Vector3D.Create(1, 0, 0);
+                    var v2 = <Vector3D>v1.rotateZ(getAngle(angleIsh, p2, i));
+                    return new CSG.Connector(p2.toVector3D(0),
+                        v2,
+                        CSG.ConnectorList.defaultNormal);
+                }, this)
+                );
             result.closed = path2D.closed;
             return result;
-        };
-        ConnectorList.prototype.setClosed = function (bool) {
+        }
+
+
+
+        public setClosed(bool) {
             this.closed = !!closed;
-        };
-        ConnectorList.prototype.appendConnector = function (conn) {
+        }
+
+        public appendConnector(conn) {
             this.connectors_.push(conn);
-        };
+        }
+
         /*
          * arguments: cagish: a cag or a function(connector) returning a cag
          *            closed: whether the 3d path defined by connectors location
@@ -5057,7 +5370,8 @@ var CSG;
          *              Note: don't duplicate connectors in the path
          * TODO: consider an option "maySelfIntersect" to close & force union all single segments
          */
-        ConnectorList.prototype.followWith = function (cagish) {
+
+        public followWith(cagish) {
             this.verify();
             function getCag(cagish, connector) {
                 if (typeof cagish == "function") {
@@ -5065,6 +5379,7 @@ var CSG;
                 }
                 return cagish;
             }
+
             var polygons = [], currCag;
             var prevConnector = this.connectors_[this.connectors_.length - 1];
             var prevCag = getCag(cagish, prevConnector);
@@ -5075,25 +5390,26 @@ var CSG;
                     polygons.push.apply(polygons, prevCag._toWallPolygons({
                         toConnector1: prevConnector, toConnector2: connector, cag: currCag
                     }));
-                }
-                else {
+                } else {
                     // it is the first, and shape not closed -> build start wall
-                    polygons.push.apply(polygons, currCag._toPlanePolygons({ toConnector: connector, flipped: true }));
+                    polygons.push.apply(polygons,
+                        currCag._toPlanePolygons({ toConnector: connector, flipped: true }));
                 }
                 if (notFirst == this.connectors_.length - 1 && !this.closed) {
                     // build end wall
-                    polygons.push.apply(polygons, currCag._toPlanePolygons({ toConnector: connector }));
+                    polygons.push.apply(polygons,
+                        currCag._toPlanePolygons({ toConnector: connector }));
                 }
                 prevCag = currCag;
                 prevConnector = connector;
             }, this);
             return CSG.fromPolygons(polygons).reTesselated().canonicalized();
-        };
+        }
         /*
          * general idea behind these checks: connectors need to have smooth transition from one to another
          * TODO: add a check that 2 follow-on CAGs are not intersecting
          */
-        ConnectorList.prototype.verify = function () {
+        public verify() {
             var connI, connI1, dPosToAxis, axisToNextAxis;
             for (var i = 0; i < this.connectors_.length - 1; i++) {
                 connI = this.connectors_[i], connI1 = this.connectors_[i + 1];
@@ -5104,17 +5420,20 @@ var CSG;
                     throw ("invalid ConnectorList. No neighboring connectors axisvectors may span a >=90deg angle");
                 }
             }
-        };
-        ConnectorList.defaultNormal = [0, 0, 1];
-        return ConnectorList;
-    })();
-    CSG.ConnectorList = ConnectorList;
+        }
+    }
+
     //////////////////////////////////////
     // # Class Path2D
-    var Path2D = (function (_super) {
-        __extends(Path2D, _super);
-        function Path2D(points, closed) {
-            _super.call(this);
+    export class Path2D extends CxG {
+        public closed: boolean;
+        public points: Vector2D[];
+        public lastBezierControlPoint: Vector2D;
+
+        constructor(points: number[], closed?: boolean);
+        constructor(points: Vector2D[], closed?: boolean);
+        constructor(points: any[], closed?: boolean) {
+            super();
             closed = !!closed;
             points = points || [];
             // re-parse the points into CSG.Vector2D
@@ -5124,20 +5443,20 @@ var CSG;
                 prevpoint = new CSG.Vector2D(points[points.length - 1]);
             }
             var newpoints = [];
-            points.map(function (point) {
+            points.map(function (point: Vector2D) {
                 point = new CSG.Vector2D(point);
                 var skip = false;
                 if (prevpoint !== null) {
                     var distance = point.distanceTo(prevpoint);
                     skip = distance < 1e-5;
                 }
-                if (!skip)
-                    newpoints.push(point);
+                if (!skip) newpoints.push(point);
                 prevpoint = point;
             });
             this.points = newpoints;
             this.closed = closed;
         }
+
         /*
         Construct a (part of a) circle. Parameters:
           options.center: the center point of the arc (CSG.Vector2D or array [x,y])
@@ -5153,7 +5472,7 @@ var CSG;
         Returns a CSG.Path2D. The path is not closed (even if it is a 360 degree arc).
         close() the resulting path if you want to create a true circle.
         */
-        Path2D.arc = function (options) {
+        public static arc(options) {
             var center = CSG.parseOptionAs2DVector(options, "center", 0);
             var radius = CSG.parseOptionAsFloat(options, "radius", 1);
             var startangle = CSG.parseOptionAsFloat(options, "startangle", 0);
@@ -5167,26 +5486,23 @@ var CSG;
             while (endangle - startangle <= -720) {
                 endangle += 360;
             }
-            var points = [], point;
+            var points = [],
+                point;
             var absangledif = Math.abs(endangle - startangle);
             if (absangledif < 1e-5) {
                 point = CSG.Vector2D.fromAngle(startangle / 180.0 * Math.PI).times(radius);
                 points.push(point.plus(center));
-            }
-            else {
+            } else {
                 var numsteps = Math.floor(resolution * absangledif / 360) + 1;
                 var edgestepsize = numsteps * 0.5 / absangledif; // step size for half a degree
-                if (edgestepsize > 0.25)
-                    edgestepsize = 0.25;
+                if (edgestepsize > 0.25) edgestepsize = 0.25;
                 var numsteps_mod = maketangent ? (numsteps + 2) : numsteps;
                 for (var i = 0; i <= numsteps_mod; i++) {
                     var step = i;
                     if (maketangent) {
                         step = (i - 1) * (numsteps - 2 * edgestepsize) / numsteps + edgestepsize;
-                        if (step < 0)
-                            step = 0;
-                        if (step > numsteps)
-                            step = numsteps;
+                        if (step < 0) step = 0;
+                        if (step > numsteps) step = numsteps;
                     }
                     var angle = startangle + step * (endangle - startangle) / numsteps;
                     point = CSG.Vector2D.fromAngle(angle / 180.0 * Math.PI).times(radius);
@@ -5194,60 +5510,65 @@ var CSG;
                 }
             }
             return new CSG.Path2D(points, false);
-        };
-        Path2D.prototype.concat = function (otherpath) {
+        }
+
+
+        public concat(otherpath) {
             if (this.closed || otherpath.closed) {
                 throw new Error("Paths must not be closed");
             }
             var newpoints = this.points.concat(otherpath.points);
             return new CSG.Path2D(newpoints);
-        };
-        Path2D.prototype.appendPoint = function (point) {
+        }
+
+        public appendPoint(point) {
             if (this.closed) {
                 throw new Error("Path must not be closed");
             }
             point = new CSG.Vector2D(point); // cast to Vector2D
             var newpoints = this.points.concat([point]);
             return new CSG.Path2D(newpoints);
-        };
-        Path2D.prototype.appendPoints = function (points) {
+        }
+
+        public appendPoints(points) {
             if (this.closed) {
                 throw new Error("Path must not be closed");
             }
             var newpoints = this.points;
             points.forEach(function (point) {
                 newpoints.push(new CSG.Vector2D(point)); // cast to Vector2D
-            });
+            })
             return new CSG.Path2D(newpoints);
-        };
-        Path2D.prototype.close = function () {
+        }
+
+        public close() {
             return new CSG.Path2D(this.points, true);
-        };
+        }
+
         // Extrude the path by following it with a rectangle (upright, perpendicular to the path direction)
         // Returns a CSG solid
         //   width: width of the extrusion, in the z=0 plane
         //   height: height of the extrusion in the z direction
         //   resolution: number of segments per 360 degrees for the curve in a corner
-        Path2D.prototype.rectangularExtrude = function (width, height, resolution) {
+        public rectangularExtrude(width: number, height: number, resolution: number) {
             var cag = this.expandToCAG(width / 2, resolution);
             var result = cag.extrude({
                 offset: [0, 0, height]
             });
             return result;
-        };
+        }
+
         // Expand the path to a CAG
         // This traces the path with a circle with radius pathradius
-        Path2D.prototype.expandToCAG = function (pathradius, resolution) {
+        public expandToCAG(pathradius: number, resolution: number) {
             var sides = [];
             var numpoints = this.points.length;
             var startindex = 0;
-            if (this.closed && (numpoints > 2))
-                startindex = -1;
+            if (this.closed && (numpoints > 2)) startindex = -1;
             var prevvertex;
             for (var i = startindex; i < numpoints; i++) {
                 var pointindex = i;
-                if (pointindex < 0)
-                    pointindex = numpoints - 1;
+                if (pointindex < 0) pointindex = numpoints - 1;
                 var point = this.points[pointindex];
                 var vertex = new CAG.Vertex(point);
                 if (i > startindex) {
@@ -5259,19 +5580,21 @@ var CSG;
             var shellcag = CAG.fromSides(sides);
             var expanded = shellcag.expandedShell(pathradius, resolution);
             return expanded;
-        };
-        Path2D.prototype.innerToCAG = function () {
-            if (!this.closed)
-                throw new Error("The path should be closed!");
+        }
+
+        public innerToCAG() {
+            if (!this.closed) throw new Error("The path should be closed!");
             return CAG.fromPoints(this.points);
-        };
-        Path2D.prototype.transform = function (matrix4x4) {
+        }
+
+        public transform(matrix4x4) {
             var newpoints = this.points.map(function (point) {
                 return point.multiply4x4(matrix4x4);
             });
             return new CSG.Path2D(newpoints, this.closed);
-        };
-        Path2D.prototype.appendBezier = function (controlpoints, options) {
+        }
+
+        public appendBezier(controlpoints, options) {
             if (arguments.length < 2) {
                 options = {};
             }
@@ -5279,17 +5602,16 @@ var CSG;
                 throw new Error("Path must not be closed");
             }
             if (!(controlpoints instanceof Array)) {
-                throw new Error("appendBezier: should pass an array of control points");
+                throw new Error("appendBezier: should pass an array of control points")
             }
             if (controlpoints.length < 1) {
-                throw new Error("appendBezier: need at least 1 control point");
+                throw new Error("appendBezier: need at least 1 control point")
             }
             if (this.points.length < 1) {
                 throw new Error("appendBezier: path must already contain a point (the endpoint of the path is used as the starting point for the bezier curve)");
             }
             var resolution = CSG.parseOptionAsInt(options, "resolution", CSG.defaultResolution2D);
-            if (resolution < 4)
-                resolution = 4;
+            if (resolution < 4) resolution = 4;
             var factorials = [];
             var controlpoints_parsed = [];
             controlpoints_parsed.push(this.points[this.points.length - 1]); // start at the previous end point
@@ -5306,8 +5628,7 @@ var CSG;
                     var lastBezierControlPoint;
                     if ('lastBezierControlPoint' in this) {
                         lastBezierControlPoint = this.lastBezierControlPoint;
-                    }
-                    else {
+                    } else {
                         if (this.points.length < 2) {
                             throw new Error("appendBezier: null is passed as a control point but this requires a previous bezier curve or at least two points in the existing path");
                         }
@@ -5315,8 +5636,7 @@ var CSG;
                     }
                     // mirror the last bezier control point:
                     p = this.points[this.points.length - 1].times(2).minus(lastBezierControlPoint);
-                }
-                else {
+                } else {
                     p = new CSG.Vector2D(p); // cast to Vector2D
                 }
                 controlpoints_parsed.push(p);
@@ -5324,8 +5644,7 @@ var CSG;
             var bezier_order = controlpoints_parsed.length - 1;
             var fact = 1;
             for (var i = 0; i <= bezier_order; ++i) {
-                if (i > 0)
-                    fact *= i;
+                if (i > 0) fact *= i;
                 factorials.push(fact);
             }
             var binomials = [];
@@ -5339,8 +5658,7 @@ var CSG;
                 var inv_1_minus_t = (t != 1) ? (1 / (1 - t)) : 1;
                 var point = new CSG.Vector2D(0, 0);
                 for (var k = 0; k <= bezier_order; ++k) {
-                    if (k == bezier_order)
-                        one_minus_t_n_minus_k = 1;
+                    if (k == bezier_order) one_minus_t_n_minus_k = 1;
                     var bernstein_coefficient = binomials[k] * t_k * one_minus_t_n_minus_k;
                     point = point.plus(controlpoints_parsed[k].times(bernstein_coefficient));
                     t_k *= t;
@@ -5378,10 +5696,8 @@ var CSG;
                     newpoints_t.splice(subdivide_base, 1, t0_new, t1_new);
                     // re - evaluate the angles, starting at the previous junction since it has changed:
                     subdivide_base--;
-                    if (subdivide_base < 1)
-                        subdivide_base = 1;
-                }
-                else {
+                    if (subdivide_base < 1) subdivide_base = 1;
+                } else {
                     ++subdivide_base;
                 }
             }
@@ -5390,7 +5706,8 @@ var CSG;
             var result = new CSG.Path2D(newpoints);
             result.lastBezierControlPoint = controlpoints_parsed[controlpoints_parsed.length - 2];
             return result;
-        };
+        }
+
         /*
          options:
          .resolution // smoothness of the arc (number of segments per 360 degree of rotation)
@@ -5406,7 +5723,7 @@ var CSG;
          This implementation follows the SVG arc specs. For the details see
          http://www.w3.org/TR/SVG/paths.html#PathDataEllipticalArcCommands
          */
-        Path2D.prototype.appendArc = function (endpoint, options) {
+        public appendArc(endpoint, options) {
             if (arguments.length < 2) {
                 options = {};
             }
@@ -5417,8 +5734,7 @@ var CSG;
                 throw new Error("appendArc: path must already contain a point (the endpoint of the path is used as the starting point for the arc)");
             }
             var resolution = CSG.parseOptionAsInt(options, "resolution", CSG.defaultResolution2D);
-            if (resolution < 4)
-                resolution = 4;
+            if (resolution < 4) resolution = 4;
             var xradius, yradius;
             if (('xradius' in options) || ('yradius' in options)) {
                 if ('radius' in options) {
@@ -5426,8 +5742,7 @@ var CSG;
                 }
                 xradius = CSG.parseOptionAsFloat(options, "xradius", 0);
                 yradius = CSG.parseOptionAsFloat(options, "yradius", 0);
-            }
-            else {
+            } else {
                 xradius = CSG.parseOptionAsFloat(options, "radius", 0);
                 yradius = xradius;
             }
@@ -5436,16 +5751,17 @@ var CSG;
             var largearc = CSG.parseOptionAsBool(options, "large", false);
             var startpoint = this.points[this.points.length - 1];
             endpoint = new CSG.Vector2D(endpoint);
+
             var sweep_flag = !clockwise;
             var newpoints = [];
             if ((xradius == 0) || (yradius == 0)) {
                 // http://www.w3.org/TR/SVG/implnote.html#ArcImplementationNotes:
                 // If rx = 0 or ry = 0, then treat this as a straight line from (x1, y1) to (x2, y2) and stop
                 newpoints.push(endpoint);
-            }
-            else {
+            } else {
                 xradius = Math.abs(xradius);
                 yradius = Math.abs(yradius);
+
                 // see http://www.w3.org/TR/SVG/implnote.html#ArcImplementationNotes :
                 var phi = xaxisrotation * Math.PI / 180.0;
                 var cosphi = Math.cos(phi);
@@ -5463,8 +5779,7 @@ var CSG;
                 }
                 // F.6.5.2:
                 var multiplier1 = Math.sqrt((xradius * xradius * yradius * yradius - xradius * xradius * start_translated.y * start_translated.y - yradius * yradius * start_translated.x * start_translated.x) / (xradius * xradius * start_translated.y * start_translated.y + yradius * yradius * start_translated.x * start_translated.x));
-                if (sweep_flag == largearc)
-                    multiplier1 = -multiplier1;
+                if (sweep_flag == largearc) multiplier1 = -multiplier1;
                 var center_translated = new CSG.Vector2D(xradius * start_translated.y / yradius, -yradius * start_translated.x / xradius).times(multiplier1);
                 // F.6.5.3:
                 var center = new CSG.Vector2D(cosphi * center_translated.x - sinphi * center_translated.y, sinphi * center_translated.x + cosphi * center_translated.y).plus((startpoint.plus(endpoint)).times(0.5));
@@ -5477,14 +5792,13 @@ var CSG;
                 deltatheta = deltatheta % (2 * Math.PI);
                 if ((!sweep_flag) && (deltatheta > 0)) {
                     deltatheta -= 2 * Math.PI;
-                }
-                else if ((sweep_flag) && (deltatheta < 0)) {
+                } else if ((sweep_flag) && (deltatheta < 0)) {
                     deltatheta += 2 * Math.PI;
                 }
+
                 // Ok, we have the center point and angle range (from theta1, deltatheta radians) so we can create the ellipse
                 var numsteps = Math.ceil(Math.abs(deltatheta) / (2 * Math.PI) * resolution) + 1;
-                if (numsteps < 1)
-                    numsteps = 1;
+                if (numsteps < 1) numsteps = 1;
                 for (var step = 1; step <= numsteps; step++) {
                     var theta = theta1 + step / numsteps * deltatheta;
                     var costheta = Math.cos(theta);
@@ -5497,30 +5811,40 @@ var CSG;
             newpoints = this.points.concat(newpoints);
             var result = new CSG.Path2D(newpoints);
             return result;
-        };
-        return Path2D;
-    })(CxG);
-    CSG.Path2D = Path2D;
-})(CSG || (CSG = {}));
-var CAG = (function (_super) {
-    __extends(CAG, _super);
-    function CAG() {
-        _super.call(this);
+        }
+
+    }
+
+
+}
+
+class CAG extends CxG {
+    //////////////////
+    // CAG: solid area geometry: like CSG but 2D
+    // Each area consists of a number of sides
+    // Each side is a line between 2 points
+
+    public sides: CAG.Side[];
+    public isCanonicalized: boolean;
+
+    constructor() {
+        super();
         this.sides = [];
     }
+
     // Construct a CAG from a list of `CAG.Side` instances.
-    CAG.fromSides = function (sides) {
+    public static fromSides(sides) {
         var cag = new CAG();
         cag.sides = sides;
         return cag;
-    };
+    }
+
     // Construct a CAG from a list of points (a polygon)
     // Rotation direction of the points is not relevant. Points can be a convex or concave polygon.
     // Polygon must not self intersect
-    CAG.fromPoints = function (points) {
+    public static fromPoints(points) {
         var numpoints = points.length;
-        if (numpoints < 3)
-            throw new Error("CAG shape needs at least 3 points");
+        if (numpoints < 3) throw new Error("CAG shape needs at least 3 points");
         var sides = [];
         var prevpoint = new CSG.Vector2D(points[numpoints - 1]);
         var prevvertex = new CAG.Vertex(prevpoint);
@@ -5544,10 +5868,11 @@ var CAG = (function (_super) {
         }
         result = result.canonicalized();
         return result;
-    };
+    }
+
     // Like CAG.fromPoints but does not check if it's a valid polygon.
     // Points should rotate counter clockwise
-    CAG.fromPointsNoCheck = function (points) {
+    public static fromPointsNoCheck(points) {
         var sides = [];
         var prevpoint = new CSG.Vector2D(points[points.length - 1]);
         var prevvertex = new CAG.Vertex(prevpoint);
@@ -5559,38 +5884,39 @@ var CAG = (function (_super) {
             prevvertex = vertex;
         });
         return CAG.fromSides(sides);
-    };
+    }
+
     // Converts a CSG to a CAG. The CSG must consist of polygons with only z coordinates +1 and -1
     // as constructed by CAG._toCSGWall(-1, 1). This is so we can use the 3D union(), intersect() etc
-    CAG.fromFakeCSG = function (csg) {
+    public static fromFakeCSG(csg) {
         var sides = csg.polygons.map(function (p) {
             return CAG.Side._fromFakePolygon(p);
         })
             .filter(function (s) {
-            return s !== null;
-        });
+                return s !== null;
+            });
         return CAG.fromSides(sides);
-    };
+    }
+
     // see if the line between p0start and p0end intersects with the line between p1start and p1end
     // returns true if the lines strictly intersect, the end points are not counted!
-    CAG.linesIntersect = function (p0start, p0end, p1start, p1end) {
+    public static linesIntersect(p0start, p0end, p1start, p1end) {
         if (p0end.equals(p1start) || p1end.equals(p0start)) {
             var d = p1end.minus(p1start).unit().plus(p0end.minus(p0start).unit()).length();
             if (d < 1e-5) {
                 return true;
             }
-        }
-        else {
+        } else {
             var d0 = p0end.minus(p0start);
             var d1 = p1end.minus(p1start);
-            if (Math.abs(d0.cross(d1)) < 1e-9)
-                return false; // lines are parallel
+            if (Math.abs(d0.cross(d1)) < 1e-9) return false; // lines are parallel
             var alphas = CSG.solve2Linear(-d0.x, d1.x, -d0.y, d1.y, p0start.x - p1start.x, p0start.y - p1start.y);
-            if ((alphas[0] > 1e-6) && (alphas[0] < 0.999999) && (alphas[1] > 1e-5) && (alphas[1] < 0.999999))
-                return true;
+            if ((alphas[0] > 1e-6) && (alphas[0] < 0.999999) && (alphas[1] > 1e-5) && (alphas[1] < 0.999999)) return true;
+            //    if( (alphas[0] >= 0) && (alphas[0] <= 1) && (alphas[1] >= 0) && (alphas[1] <= 1) ) return true;
         }
         return false;
-    };
+    }
+
     /* Construct a circle
     options:
       center: a 2D center point
@@ -5598,7 +5924,7 @@ var CAG = (function (_super) {
       resolution: number of sides per 360 degree rotation
     returns a CAG object
     */
-    CAG.circle = function (options) {
+    public static circle(options) {
         options = options || {};
         var center = CSG.parseOptionAs2DVector(options, "center", [0, 0]);
         var radius = CSG.parseOptionAsFloat(options, "radius", 1);
@@ -5615,26 +5941,26 @@ var CAG = (function (_super) {
             prevvertex = vertex;
         }
         return CAG.fromSides(sides);
-    };
+    }
+
     /* Construct a rectangle
     options:
       center: a 2D center point
       radius: a 2D vector with width and height
       returns a CAG object
     */
-    CAG.rectangle = function (options) {
+    public static rectangle(options) {
         options = options || {};
         var c, r;
         if (('corner1' in options) || ('corner2' in options)) {
             if (('center' in options) || ('radius' in options)) {
-                throw new Error("rectangle: should either give a radius and center parameter, or a corner1 and corner2 parameter");
+                throw new Error("rectangle: should either give a radius and center parameter, or a corner1 and corner2 parameter")
             }
             var corner1 = CSG.parseOptionAs2DVector(options, "corner1", [0, 0]);
             var corner2 = CSG.parseOptionAs2DVector(options, "corner2", [1, 1]);
             c = corner1.plus(corner2).times(0.5);
             r = corner2.minus(corner1).times(0.5);
-        }
-        else {
+        } else {
             c = CSG.parseOptionAs2DVector(options, "center", [0, 0]);
             r = CSG.parseOptionAs2DVector(options, "radius", [1, 1]);
         }
@@ -5644,26 +5970,26 @@ var CAG = (function (_super) {
             c.plus(r), c.plus(rswap), c.minus(r), c.minus(rswap)
         ];
         return CAG.fromPoints(points);
-    };
+    }
+
     //     var r = CSG.roundedRectangle({
     //       center: [0, 0],
     //       radius: [2, 1],
     //       roundradius: 0.2,
     //       resolution: 8,
     //     });
-    CAG.roundedRectangle = function (options) {
+    public static roundedRectangle(options) {
         options = options || {};
         var center, radius;
         if (('corner1' in options) || ('corner2' in options)) {
             if (('center' in options) || ('radius' in options)) {
-                throw new Error("roundedRectangle: should either give a radius and center parameter, or a corner1 and corner2 parameter");
+                throw new Error("roundedRectangle: should either give a radius and center parameter, or a corner1 and corner2 parameter")
             }
             var corner1 = CSG.parseOptionAs2DVector(options, "corner1", [0, 0]);
             var corner2 = CSG.parseOptionAs2DVector(options, "corner2", [1, 1]);
             center = corner1.plus(corner2).times(0.5);
             radius = corner2.minus(corner1).times(0.5);
-        }
-        else {
+        } else {
             center = CSG.parseOptionAs2DVector(options, "center", [0, 0]);
             radius = CSG.parseOptionAs2DVector(options, "radius", [1, 1]);
         }
@@ -5683,11 +6009,11 @@ var CAG = (function (_super) {
             rect = rect.expand(roundradius, resolution);
         }
         return rect;
-    };
+    }
+
     // Reconstruct a CAG from the output of toCompactBinary()
-    CAG.fromCompactBinary = function (bin) {
-        if (bin['class'] != "CAG")
-            throw new Error("Not a CAG");
+    public static fromCompactBinary(bin) {
+        if (bin['class'] != "CAG") throw new Error("Not a CAG");
         var vertices = [];
         var vertexData = bin.vertexData;
         var numvertices = vertexData.length / 2;
@@ -5699,6 +6025,7 @@ var CAG = (function (_super) {
             var vertex = new CAG.Vertex(pos);
             vertices.push(vertex);
         }
+
         var sides = [];
         var numsides = bin.sideVertexIndices.length / 2;
         arrayindex = 0;
@@ -5711,21 +6038,24 @@ var CAG = (function (_super) {
         var cag = CAG.fromSides(sides);
         cag.isCanonicalized = true;
         return cag;
-    };
-    CAG.prototype.toString = function () {
+    }
+
+    public toString() {
         var result = "CAG (" + this.sides.length + " sides):\n";
         this.sides.map(function (side) {
             result += "  " + side.toString() + "\n";
         });
         return result;
-    };
-    CAG.prototype._toCSGWall = function (z0, z1) {
+    }
+
+    public _toCSGWall(z0, z1) {
         var polygons = this.sides.map(function (side) {
             return side.toPolygon3D(z0, z1);
         });
         return CSG.fromPolygons(polygons);
-    };
-    CAG.prototype._toVector3DPairs = function (m) {
+    }
+
+    public _toVector3DPairs(m) {
         // transform m
         var pairs = this.sides.map(function (side) {
             var p0 = side.vertex0.pos, p1 = side.vertex1.pos;
@@ -5740,14 +6070,15 @@ var CAG = (function (_super) {
             });
         }
         return pairs;
-    };
+    }
+
     /*
         * transform a cag into the polygons of a corresponding 3d plane, positioned per options
         * Accepts a connector for plane positioning, or optionally
         * single translation, axisVector, normalVector arguments
         * (toConnector has precedence over single arguments if provided)
         */
-    CAG.prototype._toPlanePolygons = function (options) {
+    public _toPlanePolygons(options) {
         var flipped = options.flipped || false;
         // reference connector for transformation
         var origin = [0, 0, 0], defaultAxis = [0, 0, 1], defaultNormal = [0, 1, 0];
@@ -5767,11 +6098,11 @@ var CAG = (function (_super) {
         bounds[1] = bounds[1].plus(new CSG.Vector2D(1, 1));
         var csgshell = this._toCSGWall(-1, 1);
         var csgplane = CSG.fromPolygons([new CSG.Polygon([
-                new CSG.Vertex(new CSG.Vector3D(bounds[0].x, bounds[0].y, 0)),
-                new CSG.Vertex(new CSG.Vector3D(bounds[1].x, bounds[0].y, 0)),
-                new CSG.Vertex(new CSG.Vector3D(bounds[1].x, bounds[1].y, 0)),
-                new CSG.Vertex(new CSG.Vector3D(bounds[0].x, bounds[1].y, 0))
-            ])]);
+            new CSG.Vertex(new CSG.Vector3D(bounds[0].x, bounds[0].y, 0)),
+            new CSG.Vertex(new CSG.Vector3D(bounds[1].x, bounds[0].y, 0)),
+            new CSG.Vertex(new CSG.Vector3D(bounds[1].x, bounds[1].y, 0)),
+            new CSG.Vertex(new CSG.Vector3D(bounds[0].x, bounds[1].y, 0))
+        ])]);
         if (flipped) {
             csgplane = csgplane.invert();
         }
@@ -5785,13 +6116,15 @@ var CAG = (function (_super) {
         return polys.map(function (poly) {
             return poly.transform(m);
         });
-    };
+    }
+
+
     /*
         * given 2 connectors, this returns all polygons of a "wall" between 2
         * copies of this cag, positioned in 3d space as "bottom" and
-        * "top" plane per connectors toConnector1, and toConnector2, respectively
+        * "top" plane per connectors toConnector1, and toConnector2, respectively 
         */
-    CAG.prototype._toWallPolygons = function (options) {
+    public _toWallPolygons(options) {
         // normals are going to be correct as long as toConn2.point - toConn1.point
         // points into cag normal direction (check in caller)
         // arguments: options.toConnector1, options.toConnector2, options.cag
@@ -5817,6 +6150,7 @@ var CAG = (function (_super) {
         var m2 = thisConnector.getTransformationTo(toConnector2, false, 0);
         var vps1 = this._toVector3DPairs(m1);
         var vps2 = toCag._toVector3DPairs(m2);
+
         var polygons = [];
         vps1.forEach(function (vp1, i) {
             polygons.push(new CSG.Polygon([
@@ -5825,27 +6159,28 @@ var CAG = (function (_super) {
                 new CSG.Vertex(vps2[i][1]), new CSG.Vertex(vp1[0]), new CSG.Vertex(vp1[1])]));
         });
         return polygons;
-    };
-    CAG.prototype.union = function (cag) {
+    }
+
+    public union(cag) {
         var cags;
         if (cag instanceof Array) {
             cags = cag;
-        }
-        else {
+        } else {
             cags = [cag];
         }
         var r = this._toCSGWall(-1, 1);
-        var r2 = r.union(cags.map(function (cag) {
-            return cag._toCSGWall(-1, 1).reTesselated();
-        }));
+        var r2 = r.union(
+            cags.map(function (cag) {
+                return cag._toCSGWall(-1, 1).reTesselated();
+            }))
         return CAG.fromFakeCSG(r2).canonicalized();
-    };
-    CAG.prototype.subtract = function (cag) {
+    }
+
+    public subtract(cag) {
         var cags;
         if (cag instanceof Array) {
             cags = cag;
-        }
-        else {
+        } else {
             cags = [cag];
         }
         var r = this._toCSGWall(-1, 1);
@@ -5857,13 +6192,13 @@ var CAG = (function (_super) {
         var r2 = CAG.fromFakeCSG(r);
         r2 = r2.canonicalized();
         return r2;
-    };
-    CAG.prototype.intersect = function (cag) {
+    }
+
+    public intersect(cag) {
         var cags;
         if (cag instanceof Array) {
             cags = cag;
-        }
-        else {
+        } else {
             cags = [cag];
         }
         var r = this._toCSGWall(-1, 1);
@@ -5875,8 +6210,9 @@ var CAG = (function (_super) {
         var r2 = CAG.fromFakeCSG(r);
         r2 = r2.canonicalized();
         return r2;
-    };
-    CAG.prototype.transform = function (matrix4x4) {
+    }
+
+    public transform(matrix4x4) {
         var ismirror = matrix4x4.isMirroring();
         var newsides = this.sides.map(function (side) {
             return side.transform(matrix4x4);
@@ -5886,31 +6222,33 @@ var CAG = (function (_super) {
             result = result.flipped();
         }
         return result;
-    };
+    }
+
     // see http://local.wasp.uwa.edu.au/~pbourke/geometry/polyarea/ :
     // Area of the polygon. For a counter clockwise rotating polygon the area is positive, otherwise negative
     // Note(bebbi): this looks wrong. See polygon getArea()
-    CAG.prototype.area = function () {
+    public area() {
         var polygonArea = 0;
         this.sides.map(function (side) {
             polygonArea += side.vertex0.pos.cross(side.vertex1.pos);
         });
         polygonArea *= 0.5;
         return polygonArea;
-    };
-    CAG.prototype.flipped = function () {
+    }
+
+    public flipped() {
         var newsides = this.sides.map(function (side) {
             return side.flipped();
         });
         newsides.reverse();
         return CAG.fromSides(newsides);
-    };
-    CAG.prototype.getBounds = function () {
+    }
+
+    public getBounds() {
         var minpoint;
         if (this.sides.length === 0) {
             minpoint = new CSG.Vector2D(0, 0);
-        }
-        else {
+        } else {
             minpoint = this.sides[0].vertex0.pos;
         }
         var maxpoint = minpoint;
@@ -5921,28 +6259,26 @@ var CAG = (function (_super) {
             maxpoint = maxpoint.max(side.vertex1.pos);
         });
         return [minpoint, maxpoint];
-    };
-    CAG.prototype.isSelfIntersecting = function () {
+    }
+
+    public isSelfIntersecting() {
         var numsides = this.sides.length;
         for (var i = 0; i < numsides; i++) {
             var side0 = this.sides[i];
             for (var ii = i + 1; ii < numsides; ii++) {
                 var side1 = this.sides[ii];
                 if (CAG.linesIntersect(side0.vertex0.pos, side0.vertex1.pos, side1.vertex0.pos, side1.vertex1.pos)) {
-                    if (false) {
-                        OpenJsCad.log(side0.toString());
-                        OpenJsCad.log(side1.toString());
-                    }
+                    if (false) { OpenJsCad.log(side0.toString()); OpenJsCad.log(side1.toString()); }
                     return true;
                 }
             }
         }
         return false;
-    };
-    CAG.prototype.expandedShell = function (radius, resolution) {
+    }
+
+    public expandedShell(radius: number, resolution: number) {
         resolution = resolution || 8;
-        if (resolution < 4)
-            resolution = 4;
+        if (resolution < 4) resolution = 4;
         var cags = [];
         var pointmap = {};
         var cag = this.canonicalized();
@@ -5984,10 +6320,8 @@ var CAG = (function (_super) {
                 var end2 = m[1].p2;
                 angle1 = end1.minus(pcenter).angleDegrees();
                 angle2 = end2.minus(pcenter).angleDegrees();
-                if (angle2 < angle1)
-                    angle2 += 360;
-                if (angle2 >= (angle1 + 360))
-                    angle2 -= 360;
+                if (angle2 < angle1) angle2 += 360;
+                if (angle2 >= (angle1 + 360)) angle2 -= 360;
                 if (angle2 < angle1 + 180) {
                     var t = angle2;
                     angle2 = angle1 + 360;
@@ -5995,8 +6329,7 @@ var CAG = (function (_super) {
                 }
                 angle1 += 90;
                 angle2 -= 90;
-            }
-            else {
+            } else {
                 angle1 = 0;
                 angle2 = 360;
             }
@@ -6011,12 +6344,10 @@ var CAG = (function (_super) {
                     points.push(pcenter);
                 }
                 var numsteps = Math.round(resolution * (angle2 - angle1) / 360);
-                if (numsteps < 1)
-                    numsteps = 1;
+                if (numsteps < 1) numsteps = 1;
                 for (var step = 0; step <= numsteps; step++) {
                     var angle = angle1 + step / numsteps * (angle2 - angle1);
-                    if (step == numsteps)
-                        angle = angle2; // prevent rounding errors
+                    if (step == numsteps) angle = angle2; // prevent rounding errors
                     var point = pcenter.plus(CSG.Vector2D.fromAngleDegrees(angle).times(radius));
                     if ((!fullcircle) || (step > 0)) {
                         points.push(point);
@@ -6029,15 +6360,18 @@ var CAG = (function (_super) {
         var result = new CAG();
         result = result.union(cags);
         return result;
-    };
-    CAG.prototype.expand = function (radius, resolution) {
+    }
+
+    public expand(radius: number, resolution: number) {
         var result = this.union(this.expandedShell(radius, resolution));
         return result;
-    };
-    CAG.prototype.contract = function (radius, resolution) {
+    }
+
+    public contract(radius: number, resolution: number) {
         var result = this.subtract(this.expandedShell(radius, resolution));
         return result;
-    };
+    }
+
     // extrude the CAG in a certain plane. 
     // Giving just a plane is not enough, multiple different extrusions in the same plane would be possible
     // by rotating around the plane's origin. An additional right-hand vector should be specified as well,
@@ -6048,7 +6382,7 @@ var CAG = (function (_super) {
     //
     // options:
     //   {symmetrical: true}  // extrude symmetrically in two directions about the plane
-    CAG.prototype.extrudeInOrthonormalBasis = function (orthonormalbasis, depth, options) {
+    public extrudeInOrthonormalBasis(orthonormalbasis, depth, options?) {
         // first extrude in the regular Z plane:
         if (!(orthonormalbasis instanceof CSG.OrthoNormalBasis)) {
             throw new Error("extrudeInPlane: the first parameter should be a CSG.OrthoNormalBasis");
@@ -6057,26 +6391,28 @@ var CAG = (function (_super) {
             offset: [0, 0, depth]
         });
         if (CSG.parseOptionAsBool(options, "symmetrical", false)) {
-            extruded = extruded.translate([0, 0, -depth / 2]);
+            extruded = <CSG>extruded.translate([0, 0, -depth / 2]);
         }
         var matrix = orthonormalbasis.getInverseProjectionMatrix();
         extruded = extruded.transform(matrix);
         return extruded;
-    };
+    }
+
     // Extrude in a standard cartesian plane, specified by two axis identifiers. Each identifier can be
     // one of ["X","Y","Z","-X","-Y","-Z"]
     // The 2d x axis will map to the first given 3D axis, the 2d y axis will map to the second.
     // See CSG.OrthoNormalBasis.GetCartesian for details.
-    CAG.prototype.extrudeInPlane = function (axis1, axis2, depth, options) {
+    public extrudeInPlane(axis1, axis2, depth, options) {
         return this.extrudeInOrthonormalBasis(CSG.OrthoNormalBasis.GetCartesian(axis1, axis2), depth, options);
-    };
+    }
+
     // extruded=cag.extrude({offset: [0,0,10], twistangle: 360, twiststeps: 100});
     // linear extrusion of 2D shape, with optional twist
     // The 2d shape is placed in in z=0 plane and extruded into direction <offset> (a CSG.Vector3D)
     // The final face is rotated <twistangle> degrees. Rotation is done around the origin of the 2d shape (i.e. x=0, y=0)
     // twiststeps determines the resolution of the twist (should be >= 1)
     // returns a CSG object
-    CAG.prototype.extrude = function (options) {
+    public extrude(options: CAG_extrude_options) {
         if (this.sides.length == 0) {
             // empty!
             return new CSG();
@@ -6091,6 +6427,7 @@ var CAG = (function (_super) {
             twiststeps = 1;
         }
         var normalVector = CSG.Vector3D.Create(0, 1, 0);
+
         var polygons = [];
         // bottom and top
         polygons = polygons.concat(this._toPlanePolygons({
@@ -6103,21 +6440,27 @@ var CAG = (function (_super) {
         }));
         // walls
         for (var i = 0; i < twiststeps; i++) {
-            var c1 = new CSG.Connector(offsetVector.times(i / twiststeps), [0, 0, offsetVector.z], normalVector.rotateZ(i * twistangle / twiststeps));
-            var c2 = new CSG.Connector(offsetVector.times((i + 1) / twiststeps), [0, 0, offsetVector.z], normalVector.rotateZ((i + 1) * twistangle / twiststeps));
+            var c1 = new CSG.Connector(offsetVector.times(i / twiststeps), [0, 0, offsetVector.z],
+                <CSG.Vector3D>normalVector.rotateZ(i * twistangle / twiststeps));
+            var c2 = new CSG.Connector(offsetVector.times((i + 1) / twiststeps), [0, 0, offsetVector.z],
+                <CSG.Vector3D>normalVector.rotateZ((i + 1) * twistangle / twiststeps));
             polygons = polygons.concat(this._toWallPolygons({ toConnector1: c1, toConnector2: c2 }));
         }
+
         return CSG.fromPolygons(polygons);
-    };
+    }
+
     /*
         * extrude CAG to 3d object by rotating the origin around the y axis
         * (and turning everything into XY plane)
         * arguments: options dict with angle and resolution, both optional
         */
-    CAG.prototype.rotateExtrude = function (options) {
+    public rotateExtrude(options) {
         var alpha = CSG.parseOptionAsFloat(options, "angle", 360);
         var resolution = CSG.parseOptionAsInt(options, "resolution", CSG.defaultResolution3D);
+
         var EPS = 1e-5;
+
         alpha = alpha > 360 ? alpha % 360 : alpha;
         var origin = [0, 0, 0];
         var axisV = CSG.Vector3D.Create(0, 1, 0);
@@ -6128,22 +6471,26 @@ var CAG = (function (_super) {
         if (alpha > 0 && alpha < 360) {
             // we need to rotate negative to satisfy wall function condition of
             // building in the direction of axis vector
-            var connE = new CSG.Connector(origin, axisV.rotateZ(-alpha), normalV);
-            polygons = polygons.concat(this._toPlanePolygons({ toConnector: connS, flipped: true }));
-            polygons = polygons.concat(this._toPlanePolygons({ toConnector: connE }));
+            var connE = new CSG.Connector(origin, <CSG.Vector3D>axisV.rotateZ(-alpha), normalV);
+            polygons = polygons.concat(
+                this._toPlanePolygons({ toConnector: connS, flipped: true }));
+            polygons = polygons.concat(
+                this._toPlanePolygons({ toConnector: connE }));
         }
         var connT1 = connS, connT2;
         var step = alpha / resolution;
         for (var a = step; a <= alpha + EPS; a += step) {
-            connT2 = new CSG.Connector(origin, axisV.rotateZ(-a), normalV);
-            polygons = polygons.concat(this._toWallPolygons({ toConnector1: connT1, toConnector2: connT2 }));
+            connT2 = new CSG.Connector(origin, <CSG.Vector3D>axisV.rotateZ(-a), normalV);
+            polygons = polygons.concat(this._toWallPolygons(
+                { toConnector1: connT1, toConnector2: connT2 }));
             connT1 = connT2;
         }
         return CSG.fromPolygons(polygons).reTesselated();
-    };
+    }
+
     // check if we are a valid CAG (for debugging)
     // NOTE(bebbi) uneven side count doesn't work because rounding with EPS isn't taken into account
-    CAG.prototype.check = function () {
+    public check() {
         var EPS = 1e-5;
         var errors = [];
         if (this.isSelfIntersecting()) {
@@ -6153,8 +6500,7 @@ var CAG = (function (_super) {
         this.sides.map(function (side) {
             function mappoint(p) {
                 var tag = p.x + " " + p.y;
-                if (!(tag in pointcount))
-                    pointcount[tag] = 0;
+                if (!(tag in pointcount)) pointcount[tag] = 0;
                 pointcount[tag]++;
             }
             mappoint(side.vertex0.pos);
@@ -6177,19 +6523,20 @@ var CAG = (function (_super) {
             });
             throw new Error(ertxt);
         }
-    };
-    CAG.prototype.canonicalized = function () {
+    }
+
+    public canonicalized() {
         if (this.isCanonicalized) {
             return this;
-        }
-        else {
+        } else {
             var factory = new CAG.fuzzyCAGFactory();
             var result = factory.getCAG(this);
             result.isCanonicalized = true;
             return result;
         }
-    };
-    CAG.prototype.toCompactBinary = function () {
+    }
+
+    public toCompactBinary() {
         var cag = this.canonicalized();
         var numsides = cag.sides.length;
         var vertexmap = {};
@@ -6205,8 +6552,7 @@ var CAG = (function (_super) {
                     vertexindex = numvertices++;
                     vertexmap[vertextag] = vertexindex;
                     vertices.push(v);
-                }
-                else {
+                } else {
                     vertexindex = vertexmap[vertextag];
                 }
                 sideVertexIndices[sidevertexindicesindex++] = vertexindex;
@@ -6214,7 +6560,7 @@ var CAG = (function (_super) {
         });
         var vertexData = new Float64Array(numvertices * 2);
         var verticesArrayIndex = 0;
-        vertices.map(function (v) {
+        vertices.map(function (v: CSG.Vertex) {
             var pos = v.pos;
             vertexData[verticesArrayIndex++] = pos.x;
             vertexData[verticesArrayIndex++] = pos.y;
@@ -6225,8 +6571,9 @@ var CAG = (function (_super) {
             vertexData: vertexData
         };
         return result;
-    };
-    CAG.prototype.getOutlinePaths = function () {
+    }
+
+    public getOutlinePaths() {
         var cag = this.canonicalized();
         var sideTagToSideMap = {};
         var startVertexTagToSideTagMap = {};
@@ -6251,8 +6598,7 @@ var CAG = (function (_super) {
                 }
                 break;
             }
-            if (startsidetag === null)
-                break; // we've had all sides
+            if (startsidetag === null) break; // we've had all sides
             var connectedVertexPoints = [];
             var sidetag = startsidetag;
             var thisside = sideTagToSideMap[sidetag];
@@ -6260,8 +6606,7 @@ var CAG = (function (_super) {
             while (true) {
                 connectedVertexPoints.push(thisside.vertex0.pos);
                 var nextvertextag = thisside.vertex1.getTag();
-                if (nextvertextag == startvertextag)
-                    break; // we've closed the polygon
+                if (nextvertextag == startvertextag) break; // we've closed the polygon
                 if (!(nextvertextag in startVertexTagToSideTagMap)) {
                     throw new Error("Area is not closed!");
                 }
@@ -6269,8 +6614,7 @@ var CAG = (function (_super) {
                 var nextsideindex = -1;
                 if (nextpossiblesidetags.length == 1) {
                     nextsideindex = 0;
-                }
-                else {
+                } else {
                     // more than one side starting at the same vertex. This means we have
                     // two shapes touching at the same corner
                     var bestangle = null;
@@ -6280,10 +6624,8 @@ var CAG = (function (_super) {
                         var possibleside = sideTagToSideMap[nextpossiblesidetag];
                         var angle = possibleside.direction().angleDegrees();
                         var angledif = angle - thisangle;
-                        if (angledif < -180)
-                            angledif += 360;
-                        if (angledif >= 180)
-                            angledif -= 360;
+                        if (angledif < -180) angledif += 360;
+                        if (angledif >= 180) angledif -= 360;
                         if ((nextsideindex < 0) || (angledif > bestangle)) {
                             nextsideindex = sideindex;
                             bestangle = angledif;
@@ -6301,7 +6643,8 @@ var CAG = (function (_super) {
             paths.push(path);
         } // outer loop
         return paths;
-    };
+    }
+
     /*
     cag = cag.overCutInsideCorners(cutterradius);
 
@@ -6310,7 +6653,7 @@ var CAG = (function (_super) {
     an extra cutout at each inner corner so that the actual cut out shape will be at least as large
     as needed.
     */
-    CAG.prototype.overCutInsideCorners = function (cutterradius) {
+    public overCutInsideCorners(cutterradius) {
         var cag = this.canonicalized();
         // for each vertex determine the 'incoming' side and 'outgoing' side:
         var pointmap = {}; // tag => {pos: coord, from: [], to: []}
@@ -6350,8 +6693,7 @@ var CAG = (function (_super) {
                     var alpha = v2.angleRadians() - v1.angleRadians() + Math.PI;
                     if (alpha < 0) {
                         alpha += 2 * Math.PI;
-                    }
-                    else if (alpha >= 2 * Math.PI) {
+                    } else if (alpha >= 2 * Math.PI) {
                         alpha -= 2 * Math.PI;
                     }
                     var midvector = v2.minus(v1).unit();
@@ -6376,9 +6718,11 @@ var CAG = (function (_super) {
         }
         var result = cag.subtract(cutouts);
         return result;
-    };
-    CAG.prototype.center = function (cAxes) {
+    }
+
+    public center(cAxes) {
         var axes = ['x', 'y'];
+
         cAxes = Array.prototype.map.call(arguments, function (a) {
             return a.toLowerCase();
         });
@@ -6391,13 +6735,15 @@ var CAG = (function (_super) {
             return cAxes.indexOf(a) > -1 ?
                 -(b[0][a] + b[1][a]) / 2 : 0;
         }));
-    };
+    }
+
     //formats
-    CAG.prototype.toDxf = function () {
+    public toDxf() {
         var paths = this.getOutlinePaths();
         return CAG.PathsToDxf(paths);
-    };
-    CAG.PathsToDxf = function (paths) {
+    }
+
+    public static PathsToDxf(paths) {
         var str = "999\nDXF generated by OpenJsCad\n";
         str += "  0\nSECTION\n  2\nHEADER\n";
         str += "  0\nENDSEC\n";
@@ -6419,8 +6765,7 @@ var CAG = (function (_super) {
             str += "  0\nLWPOLYLINE\n  8\nOpenJsCad\n  90\n" + numpoints_closed + "\n  70\n" + (path.closed ? 1 : 0) + "\n";
             for (var pointindex = 0; pointindex < numpoints_closed; pointindex++) {
                 var pointindexwrapped = pointindex;
-                if (pointindexwrapped >= path.points.length)
-                    pointindexwrapped -= path.points.length;
+                if (pointindexwrapped >= path.points.length) pointindexwrapped -= path.points.length;
                 var point = path.points[pointindexwrapped];
                 str += " 10\n" + point.x + "\n 20\n" + point.y + "\n 30\n0.0\n";
             }
@@ -6429,49 +6774,51 @@ var CAG = (function (_super) {
         return new Blob([str], {
             type: "application/dxf"
         });
-    };
-    return CAG;
-})(CxG);
-var CAG;
-(function (CAG) {
-    var Vertex = (function () {
-        function Vertex(pos) {
-            this.pos = pos;
+    }
+
+}
+
+module CAG {
+
+    export class Vertex {
+        public tag: number;
+
+        constructor(public pos: CSG.Vector2D) {
             this.pos = pos;
         }
-        Vertex.prototype.toString = function () {
+
+        public toString() {
             return "(" + this.pos.x.toFixed(2) + "," + this.pos.y.toFixed(2) + ")";
-        };
-        Vertex.prototype.getTag = function () {
+        }
+
+        public getTag() {
             var result = this.tag;
             if (!result) {
                 result = CSG.getTag();
                 this.tag = result;
             }
             return result;
-        };
-        return Vertex;
-    })();
-    CAG.Vertex = Vertex;
-    var Side = (function (_super) {
-        __extends(Side, _super);
-        function Side(vertex0, vertex1) {
-            _super.call(this);
-            this.vertex0 = vertex0;
-            this.vertex1 = vertex1;
-            if (!(vertex0 instanceof CAG.Vertex))
-                throw new Error("Assertion failed");
-            if (!(vertex1 instanceof CAG.Vertex))
-                throw new Error("Assertion failed");
+        }
+    }
+
+    export class Side extends CxG {
+
+        public tag: number;
+
+        constructor(public vertex0: Vertex, public vertex1: Vertex) {
+            super();
+            if (!(vertex0 instanceof CAG.Vertex)) throw new Error("Assertion failed");
+            if (!(vertex1 instanceof CAG.Vertex)) throw new Error("Assertion failed");
             this.vertex0 = vertex0;
             this.vertex1 = vertex1;
         }
-        Side._fromFakePolygon = function (polygon) {
+
+        public static _fromFakePolygon(polygon) {
             polygon.vertices.forEach(function (v) {
                 if (!((v.pos.z >= -1.001) && (v.pos.z < -0.999)) && !((v.pos.z >= 0.999) && (v.pos.z < 1.001))) {
                     throw ("Assertion failed: _fromFakePolygon expects abs z values of 1");
                 }
-            });
+            })
             // this can happen based on union, seems to be residuals -
             // return null and handle in caller
             if (polygon.vertices.length < 4) {
@@ -6486,27 +6833,29 @@ var CAG;
                 }
             })
                 .map(function (v) {
-                return new CSG.Vector2D(v.pos.x, v.pos.y);
-            });
+                    return new CSG.Vector2D(v.pos.x, v.pos.y);
+                });
             if (pts2d.length != 2) {
-                throw ('Assertion failed: _fromFakePolygon: not enough points found');
+                throw ('Assertion failed: _fromFakePolygon: not enough points found')
             }
             var d = vert1Indices[1] - vert1Indices[0];
             if (d == 1 || d == 3) {
                 if (d == 1) {
                     pts2d.reverse();
                 }
-            }
-            else {
+            } else {
                 throw ('Assertion failed: _fromFakePolygon: unknown index ordering');
             }
             var result = new CAG.Side(new CAG.Vertex(pts2d[0]), new CAG.Vertex(pts2d[1]));
             return result;
-        };
-        Side.prototype.toString = function () {
+        }
+
+
+        public toString() {
             return this.vertex0 + " -> " + this.vertex1;
-        };
-        Side.prototype.toPolygon3D = function (z0, z1) {
+        }
+
+        public toPolygon3D(z0, z1) {
             var vertices = [
                 new CSG.Vertex(this.vertex0.pos.toVector3D(z0)),
                 new CSG.Vertex(this.vertex1.pos.toVector3D(z0)),
@@ -6514,67 +6863,88 @@ var CAG;
                 new CSG.Vertex(this.vertex0.pos.toVector3D(z1))
             ];
             return new CSG.Polygon(vertices);
-        };
-        Side.prototype.transform = function (matrix4x4) {
+        }
+
+        public transform(matrix4x4) {
             var newp1 = this.vertex0.pos.transform(matrix4x4);
             var newp2 = this.vertex1.pos.transform(matrix4x4);
             return new CAG.Side(new CAG.Vertex(newp1), new CAG.Vertex(newp2));
-        };
-        Side.prototype.flipped = function () {
+        }
+
+        public flipped() {
             return new CAG.Side(this.vertex1, this.vertex0);
-        };
-        Side.prototype.direction = function () {
+        }
+
+        public direction() {
             return this.vertex1.pos.minus(this.vertex0.pos);
-        };
-        Side.prototype.getTag = function () {
+        }
+
+        public getTag() {
             var result = this.tag;
             if (!result) {
                 result = CSG.getTag();
                 this.tag = result;
             }
             return result;
-        };
-        Side.prototype.lengthSquared = function () {
-            var x = this.vertex1.pos.x - this.vertex0.pos.x, y = this.vertex1.pos.y - this.vertex0.pos.y;
+        }
+
+        public lengthSquared() {
+            var x = this.vertex1.pos.x - this.vertex0.pos.x,
+                y = this.vertex1.pos.y - this.vertex0.pos.y;
             return x * x + y * y;
-        };
-        Side.prototype.length = function () {
+        }
+
+        public length() {
             return Math.sqrt(this.lengthSquared());
-        };
-        return Side;
-    })(CxG);
-    CAG.Side = Side;
+        }
+
+    }
+
     //////////////////////////////////////
-    var fuzzyCAGFactory = (function () {
-        function fuzzyCAGFactory() {
+    export class fuzzyCAGFactory {
+        public vertexfactory: CSG.fuzzyFactory;
+
+        constructor() {
             this.vertexfactory = new CSG.fuzzyFactory(2, 1e-5);
         }
-        fuzzyCAGFactory.prototype.getVertex = function (sourcevertex) {
+
+
+        public getVertex(sourcevertex: Vertex) {
             var elements = [sourcevertex.pos.x, sourcevertex.pos.y];
             var result = this.vertexfactory.lookupOrCreate(elements, function (els) {
                 return sourcevertex;
             });
             return result;
-        };
-        fuzzyCAGFactory.prototype.getSide = function (sourceside) {
+        }
+
+        public getSide(sourceside) {
             var vertex0 = this.getVertex(sourceside.vertex0);
             var vertex1 = this.getVertex(sourceside.vertex1);
             return new CAG.Side(vertex0, vertex1);
-        };
-        fuzzyCAGFactory.prototype.getCAG = function (sourcecag) {
+        }
+
+        public getCAG(sourcecag) {
             var _this = this;
             var newsides = sourcecag.sides.map(function (side) {
                 return _this.getSide(side);
             })
+            // remove bad sides (mostly a user input issue)
                 .filter(function (side) {
-                return side.length() > 1e-5;
-            });
+                    return side.length() > 1e-5;
+                });
             return CAG.fromSides(newsides);
-        };
-        return fuzzyCAGFactory;
-    })();
-    CAG.fuzzyCAGFactory = fuzzyCAGFactory;
-})(CAG || (CAG = {}));
+        }
+    }
+
+}
+
+interface CAG_extrude_options {
+    offset?: number[];
+    twistangle?: number;
+    twiststeps?: number;
+}
+
+
 /*
 2D polygons are now supported through the CAG class.
 With many improvements (see documentation):
@@ -6584,18 +6954,14 @@ With many improvements (see documentation):
 
 But we'll keep CSG.Polygon2D as a stub for backwards compatibility
 */
-var CSG;
-(function (CSG) {
-    var Polygon2D = (function (_super) {
-        __extends(Polygon2D, _super);
-        function Polygon2D(points) {
-            _super.call(this);
+module CSG {
+    export class Polygon2D extends CAG {
+        constructor(points) {
+            super();
             var cag = CAG.fromPoints(points);
             this.sides = cag.sides;
         }
-        return Polygon2D;
-    })(CAG);
-    CSG.Polygon2D = Polygon2D;
-})(CSG || (CSG = {}));
-//declare var OpenJsCad; 
-//# sourceMappingURL=csg.js.map
+    }
+}
+
+//declare var OpenJsCad;
