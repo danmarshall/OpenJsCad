@@ -5150,36 +5150,36 @@ declare module THREE {
 
     // Extras / Audio /////////////////////////////////////////////////////////////////////
 
-    export class Audio extends Object3D {
-        constructor(listener: AudioListener);
-        type: string;
-        context: AudioContext;
-        source: AudioBufferSourceNode;
-        gain: GainNode;
-        panner: PannerNode;
-        autoplay: boolean;
-        startTime: number;
-        isPlaying: boolean;
+    //export class Audio extends Object3D {
+    //    constructor(listener: AudioListener);
+    //    type: string;
+    //    context: AudioContext;
+    //    source: AudioBufferSourceNode;
+    //    gain: GainNode;
+    //    panner: PannerNode;
+    //    autoplay: boolean;
+    //    startTime: number;
+    //    isPlaying: boolean;
 
-        load(file: string): Audio;
-        play(): void;
-        pause(): void;
-        stop(): void;
-        setLoop(value: boolean): void;
-        setRefDistance(value: number): void;
-        setRolloffFactor(value: number): void;
-        setVolume(value: number): void;
-        updateMatrixWorld(force?: boolean): void;
-    }
+    //    load(file: string): Audio;
+    //    play(): void;
+    //    pause(): void;
+    //    stop(): void;
+    //    setLoop(value: boolean): void;
+    //    setRefDistance(value: number): void;
+    //    setRolloffFactor(value: number): void;
+    //    setVolume(value: number): void;
+    //    updateMatrixWorld(force?: boolean): void;
+    //}
 
-    export class AudioListener extends Object3D {
-        constructor();
+    //export class AudioListener extends Object3D {
+    //    constructor();
 
-        type: string;
-        context: AudioContext;
+    //    type: string;
+    //    context: AudioContext;
 
-        updateMatrixWorld(force?: boolean): void;
-    }
+    //    updateMatrixWorld(force?: boolean): void;
+    //}
 
     // Extras / Core /////////////////////////////////////////////////////////////////////
 

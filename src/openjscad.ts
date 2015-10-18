@@ -1,3 +1,10 @@
+/// <reference path="../typings/tsd.d.ts" />
+/// <reference path="csg.ts" />
+/// <reference path="threecsg.ts" />
+/// <reference path="../lib/orbitcontrols.ts" />
+/// <reference path="../lib/canvasrenderer.ts" />
+/// <reference path="../lib/projector.ts" />
+
 module OpenJsCad {
 
     export interface ILog {
@@ -147,7 +154,7 @@ module OpenJsCad {
             this.renderer_ = renderer;
 
             if (this.canvas) {
-                this.canvas.remove();
+                (<any>this.canvas).remove();  //error TS2304: Cannot find name 'ChildNode'.
             }
             this.canvas = renderer.domElement;
             this.containerElm_.appendChild(this.canvas);
@@ -594,9 +601,9 @@ module OpenJsCad {
     }
 
     export function AlertUserOfUncaughtExceptions() {
-        window.onerror = function (message, url, line) {
-            message = message.replace(/^Uncaught /i, "");
-            alert(message + "\n\n(" + url + " line " + line + ")");
+        window.onerror = function (eventOrMessage: any, source: string, fileno: number, colnumber?: number): any {
+            var message = (<string>eventOrMessage).replace(/^Uncaught /i, "");
+            alert(message + "\n\n(" + source + " line " + fileno + ")");
         };
     }
 
@@ -1180,7 +1187,7 @@ module OpenJsCad {
 
             var blob;
             if (format == "stl") {
-                blob = (<CSG>this.currentObject).fixTJunctions().toStlString();
+                blob = (<CSG>this.currentObject).fixTJunctions().toStlBinary();
             }
             else if (format == "x3d") {
                 blob = (<CSG>this.currentObject).fixTJunctions().toX3D();
