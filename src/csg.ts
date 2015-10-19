@@ -1659,9 +1659,7 @@ class CSG extends CxG {
             result += p.toStlString();
         });
         result += "endsolid csg.js\n";
-        return new Blob([result], {
-            type: "application/sla"
-        });
+        return result;
     }
 
     public toAMFString(m) {
