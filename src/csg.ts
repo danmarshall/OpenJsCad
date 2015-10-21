@@ -93,18 +93,22 @@ for solid CAD anyway.
 
 */
 
+interface IAMFStringOptions {
+    unit: string;
+}
+
 class CxG {
-    public toStlString() {
+    public toStlString(): string {
         throw 'override';
     }
-    public toStlBinary(StlBinaryOptions?) {
+    public toStlBinary() {
         throw 'override';
     }
-    public toAMFString(AMFStringOptions?) {
+    public toAMFString(AMFStringOptions?: IAMFStringOptions) {
         throw 'override';
     }
 
-    public getBounds() {
+    public getBounds(): CxG[] {
         throw 'override';
     }
 
@@ -112,7 +116,7 @@ class CxG {
         throw 'override';
     }
 
-    public mirrored(plane) {
+    public mirrored(plane: CSG.Plane) {
         return this.transform(CSG.Matrix4x4.mirroring(plane));
     }
 
@@ -131,31 +135,33 @@ class CxG {
         return this.mirrored(plane);
     }
 
-    public translate(v) {
+    public translate(v: number[]): CxG;
+    public translate(v: CSG.Vector3D): CxG;
+    public translate(v: any): CxG {
         return this.transform(CSG.Matrix4x4.translation(v));
     }
 
-    public scale(f) {
+    public scale(f: CSG.Vector3D) {
         return this.transform(CSG.Matrix4x4.scaling(f));
     }
 
-    public rotateX(deg) {
+    public rotateX(deg: number) {
         return this.transform(CSG.Matrix4x4.rotationX(deg));
     }
 
-    public rotateY(deg) {
+    public rotateY(deg: number) {
         return this.transform(CSG.Matrix4x4.rotationY(deg));
     }
 
-    public rotateZ(deg) {
+    public rotateZ(deg: number) {
         return this.transform(CSG.Matrix4x4.rotationZ(deg));
     }
 
-    public rotate(rotationCenter, rotationAxis, degrees) {
+    public rotate(rotationCenter: CSG.Vector3D, rotationAxis: CSG.Vector3D, degrees: number) {
         return this.transform(CSG.Matrix4x4.rotation(rotationCenter, rotationAxis, degrees));
     }
 
-    public rotateEulerAngles(alpha, beta, gamma, position) {
+    public rotateEulerAngles(alpha: number, beta: number, gamma: number, position: number[]) {
         position = position || [0, 0, 0];
 
         var Rz1 = CSG.Matrix4x4.rotationZ(alpha);
@@ -166,13 +172,13 @@ class CxG {
         return this.transform(Rz2.multiply(Rx).multiply(Rz1).multiply(T));
     }
 
-    public center(cAxes) {
-        throw 'override';
-    }
-
 }
 
-class CSG extends CxG {
+interface ICenter {
+    center(cAxes: string[]): CxG;
+}
+
+class CSG extends CxG implements ICenter {
 
     public polygons: CSG.Polygon[] = [];
     public properties = new CSG.Properties();
@@ -292,8 +298,10 @@ class CSG extends CxG {
     //          |       |            |       |
     //          +-------+            +-------+
     //
-    public union(csg) {
-        var csgs;
+    public union(csg: CSG[]): CSG;
+    public union(csg: CSG): CSG;
+    public union(csg: any): CSG {
+        var csgs: CSG[];
         if (csg instanceof Array) {
             csgs = csg.slice(0);
             csgs.push(this);
@@ -309,7 +317,7 @@ class CSG extends CxG {
         return csgs[i - 1].reTesselated().canonicalized();
     }
 
-    public unionSub(csg, retesselate, canonicalize) {
+    public unionSub(csg: CSG, retesselate?: boolean, canonicalize?: boolean) {
         if (!this.mayOverlap(csg)) {
             return this.unionForNonIntersecting(csg);
         } else {
@@ -334,7 +342,7 @@ class CSG extends CxG {
 
     // Like union, but when we know that the two solids are not intersecting
     // Do not use if you are not completely sure that the solids do not intersect!
-    public unionForNonIntersecting(csg) {
+    public unionForNonIntersecting(csg: CSG) {
         var newpolygons = this.polygons.concat(csg.polygons);
         var result = CSG.fromPolygons(newpolygons);
         result.properties = this.properties._merge(csg.properties);
@@ -357,8 +365,10 @@ class CSG extends CxG {
     //          |       |
     //          +-------+
     //
-    public subtract(csg) {
-        var csgs;
+    public subtract(csg: CSG[]): CSG;
+    public subtract(csg: CSG): CSG;
+    public subtract(csg: any) {
+        var csgs: CSG[];
         if (csg instanceof Array) {
             csgs = csg;
         } else {
@@ -372,7 +382,7 @@ class CSG extends CxG {
         return result;
     }
 
-    public subtractSub(csg, retesselate, canonicalize) {
+    public subtractSub(csg: CSG, retesselate: boolean, canonicalize: boolean) {
         var a = new CSG.Tree(this.polygons);
         var b = new CSG.Tree(csg.polygons);
         a.invert();
@@ -401,8 +411,10 @@ class CSG extends CxG {
     //          |       |
     //          +-------+
     //
-    public intersect(csg): CSG {
-        var csgs;
+    public intersect(csg: CSG[]): CSG;
+    public intersect(csg: CSG): CSG;
+    public intersect(csg: any): CSG {
+        var csgs: CSG[];
         if (csg instanceof Array) {
             csgs = csg;
         } else {
@@ -416,7 +428,7 @@ class CSG extends CxG {
         return result;
     }
 
-    public intersectSub(csg, retesselate?, canonicalize?) {
+    public intersectSub(csg: CSG, retesselate?: boolean, canonicalize?: boolean) {
         var a = new CSG.Tree(this.polygons);
         var b = new CSG.Tree(csg.polygons);
         a.invert();
@@ -444,7 +456,7 @@ class CSG extends CxG {
     }
 
     // Affine transformation of CSG object. Returns a new CSG object
-    public transform1(matrix4x4) {
+    public transform1(matrix4x4: CSG.Matrix4x4) {
         var newpolygons = this.polygons.map(function (p) {
             return p.transform(matrix4x4);
         });
@@ -454,7 +466,7 @@ class CSG extends CxG {
         return result;
     }
 
-    public transform(matrix4x4) {
+    public transform(matrix4x4: CSG.Matrix4x4) {
         var ismirror = matrix4x4.isMirroring();
         var transformedvertices = {};
         var transformedplanes = {};
@@ -508,7 +520,7 @@ class CSG extends CxG {
 
     // Contract the solid
     // resolution: number of points per 360 degree for the rounded corners
-    public contract(radius, resolution) {
+    public contract(radius: number, resolution: number) {
         var expandedshell = this.expandedShell(radius, resolution, false);
         var result = this.subtract(expandedshell);
         result = result.reTesselated();
@@ -517,14 +529,14 @@ class CSG extends CxG {
     }
 
     // cut the solid at a plane, and stretch the cross-section found along plane normal
-    public stretchAtPlane(normal, point, length) {
+    public stretchAtPlane(normal: number[], point: number[], length: number) {
         var plane = CSG.Plane.fromNormalAndPoint(normal, point);
         var onb = new CSG.OrthoNormalBasis(plane);
         var crosssect = this.sectionCut(onb);
         var midpiece = crosssect.extrudeInOrthonormalBasis(onb, length);
         var piece1 = this.cutByPlane(plane);
         var piece2 = this.cutByPlane(plane.flipped());
-        var result = piece1.union([midpiece, piece2.translate(plane.normal.times(length))]);
+        var result = piece1.union([midpiece, <CSG>piece2.translate(plane.normal.times(length))]);
         return result;
     }
 
@@ -535,9 +547,9 @@ class CSG extends CxG {
     // unionWithThis: if true, the resulting solid will be united with 'this' solid;
     //   the result is a true expansion of the solid
     //   If false, returns only the shell
-    public expandedShell(radius: number, resolution: number, unionWithThis) {
+    public expandedShell(radius: number, resolution: number, unionWithThis: boolean) {
         var csg = this.reTesselated();
-        var result;
+        var result: CSG;
         if (unionWithThis) {
             result = csg;
         } else {
@@ -812,7 +824,7 @@ class CSG extends CxG {
 
     // returns true if there is a possibility that the two solids overlap
     // returns false if we can be sure that they do not overlap
-    public mayOverlap(csg) {
+    public mayOverlap(csg: CSG) {
         if ((this.polygons.length === 0) || (csg.polygons.length === 0)) {
             return false;
         } else {
@@ -829,7 +841,7 @@ class CSG extends CxG {
     }
 
     // Cut the solid by a plane. Returns the solid on the back side of the plane
-    public cutByPlane(plane): CSG {
+    public cutByPlane(plane: CSG.Plane): CSG {
         if (this.polygons.length === 0) {
             return new CSG();
         }
@@ -873,14 +885,14 @@ class CSG extends CxG {
     //           true: the 'axis' vectors of the connectors should point in opposite direction
     //   normalrotation: degrees of rotation between the 'normal' vectors of the two
     //                   connectors
-    public connectTo(myConnector, otherConnector, mirror, normalrotation) {
+    public connectTo(myConnector: CSG.Connector, otherConnector: CSG.Connector, mirror: boolean, normalrotation: number) {
         var matrix = myConnector.getTransformationTo(otherConnector, mirror, normalrotation);
         return this.transform(matrix);
     }
 
     // set the .shared property of all polygons
     // Returns a new CSG solid, the original is unmodified!
-    public setShared(shared) {
+    public setShared(shared: CSG.Polygon.Shared) {
         var polygons = this.polygons.map(function (p) {
             return new CSG.Polygon(p.vertices, shared, p.plane);
         });
@@ -1107,7 +1119,7 @@ class CSG extends CxG {
     // project the 3D CSG onto a plane
     // This returns a 2D CAG with the 'shadow' shape of the 3D solid when projected onto the
     // plane represented by the orthonormal basis
-    public projectToOrthoNormalBasis(orthobasis) {
+    public projectToOrthoNormalBasis(orthobasis: CSG.OrthoNormalBasis) {
         var EPS = 1e-5;
         var cags = [];
         this.polygons.filter(function (p) {
@@ -1124,7 +1136,7 @@ class CSG extends CxG {
         return result;
     }
 
-    public sectionCut(orthobasis) {
+    public sectionCut(orthobasis: CSG.OrthoNormalBasis) {
         var EPS = 1e-5;
         var plane1 = orthobasis.plane;
         var plane2 = orthobasis.plane.flipped();
@@ -1457,7 +1469,7 @@ class CSG extends CxG {
         return (result.length == 1) ? result[0] : result;
     }
 
-    public center(cAxes) {
+    public center(cAxes: string[]) {
         var axes = ['x', 'y', 'z'];
         cAxes = Array.prototype.map.call(arguments, function (a) {
             return a.toLowerCase();
@@ -1662,7 +1674,7 @@ class CSG extends CxG {
         return result;
     }
 
-    public toAMFString(m) {
+    public toAMFString(m: IAMFStringOptions) {
         var result = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<amf" + (m && m.unit ? " unit=\"+m.unit\"" : "") + ">\n";
         for (var k in m) {
             result += "<metadata type=\"" + k + "\">" + m[k] + "</metadata>\n";
@@ -2144,7 +2156,7 @@ module CSG {
     export function roundedCube(options) {
         var EPS = 1e-5;
         var minRR = 1e-2; //minroundradius 1e-3 gives rounding errors already
-        var center, cuberadius;
+        var center: Vector3D, cuberadius: Vector3D;
         options = options || {};
         if (('corner1' in options) || ('corner2' in options)) {
             if (('center' in options) || ('radius' in options)) {
@@ -2334,7 +2346,7 @@ module CSG {
 
         // This does the same as new CSG.Vector3D(x,y,z) but it doesn't go through the constructor
         // and the parameters are not validated. Is much faster.
-        public static Create(x, y, z): Vector3D {
+        public static Create(x: number, y: number, z: number): Vector3D {
             var result = <Vector3D>Object.create(CSG.Vector3D.prototype);
             result.x = x;
             result.y = y;
@@ -2363,11 +2375,11 @@ module CSG {
             return CSG.Vector3D.Create(this.x - a.x, this.y - a.y, this.z - a.z);
         }
 
-        public times(a) {
+        public times(a: number) {
             return CSG.Vector3D.Create(this.x * a, this.y * a, this.z * a);
         }
 
-        public dividedBy(a) {
+        public dividedBy(a: number) {
             return CSG.Vector3D.Create(this.x / a, this.y / a, this.z / a);
         }
 
@@ -2375,7 +2387,7 @@ module CSG {
             return this.x * a.x + this.y * a.y + this.z * a.z;
         }
 
-        public lerp(a: Vector3D, t) {
+        public lerp(a: Vector3D, t: number) {
             return this.plus(a.minus(this).times(t));
         }
 
@@ -2396,11 +2408,11 @@ module CSG {
                 this.y * a.z - this.z * a.y, this.z * a.x - this.x * a.z, this.x * a.y - this.y * a.x);
         }
 
-        public distanceTo(a) {
+        public distanceTo(a: Vector3D) {
             return this.minus(a).length();
         }
 
-        public distanceToSquared(a) {
+        public distanceToSquared(a: Vector3D) {
             return this.minus(a).lengthSquared();
         }
 
@@ -2410,11 +2422,11 @@ module CSG {
 
         // Right multiply by a 4x4 matrix (the vector is interpreted as a row vector)
         // Returns a new CSG.Vector3D
-        public multiply4x4(matrix4x4) {
+        public multiply4x4(matrix4x4: Matrix4x4) {
             return matrix4x4.leftMultiply1x3Vector(this);
         }
 
-        public transform(matrix4x4) {
+        public transform(matrix4x4: Matrix4x4) {
             return matrix4x4.leftMultiply1x3Vector(this);
         }
 
@@ -2494,13 +2506,13 @@ module CSG {
         // Create a new vertex between this vertex and `other` by linearly
         // interpolating all properties using a parameter of `t`. Subclasses should
         // override this to interpolate additional properties.
-        public interpolate(other, t) {
+        public interpolate(other: Vertex, t: number) {
             var newpos = this.pos.lerp(other.pos, t);
             return new CSG.Vertex(newpos);
         }
 
         // Affine transformation of vertex. Returns a new CSG.Vertex
-        public transform(matrix4x4) {
+        public transform(matrix4x4: Matrix4x4) {
             var newpos = this.pos.multiply4x4(matrix4x4);
             return new CSG.Vertex(newpos);
         }
@@ -2541,14 +2553,14 @@ module CSG {
         // point is on the plane.
         public static EPSILON = 1e-5;
 
-        public static fromVector3Ds(a, b, c) {
+        public static fromVector3Ds(a: Vector3D, b: Vector3D, c: Vector3D) {
             var n = b.minus(a).cross(c.minus(a)).unit();
             return new CSG.Plane(n, n.dot(a));
         }
 
         // like fromVector3Ds, but allow the vectors to be on one point or one line
         // in such a case a random plane through the given points is constructed
-        public static anyPlaneFromVector3Ds(a, b, c) {
+        public static anyPlaneFromVector3Ds(a: Vector3D, b: Vector3D, c: Vector3D) {
             var v1 = b.minus(a);
             var v2 = c.minus(a);
             if (v1.length() < 1e-5) {
@@ -2567,19 +2579,21 @@ module CSG {
             return new CSG.Plane(normal, normal.dot(a));
         }
 
-        public static fromPoints(a, b, c) {
+        public static fromPoints(a: Vector3D, b: Vector3D, c: Vector3D) {
             a = new CSG.Vector3D(a);
             b = new CSG.Vector3D(b);
             c = new CSG.Vector3D(c);
             return CSG.Plane.fromVector3Ds(a, b, c);
         }
 
-        public static fromNormalAndPoint(normal, point) {
-            normal = new CSG.Vector3D(normal);
-            point = new CSG.Vector3D(point);
-            normal = normal.unit();
-            var w = point.dot(normal);
-            return new CSG.Plane(normal, w);
+        public static fromNormalAndPoint(normal: Vector3D, point: Vector3D): Plane;
+        public static fromNormalAndPoint(normal: number[], point: number[]): Plane;
+        public static fromNormalAndPoint(normal: any, point: any) {
+            var v3normal = new CSG.Vector3D(normal);
+            var v3point = new CSG.Vector3D(point);
+            v3normal = v3normal.unit();
+            var w = v3point.dot(v3normal);
+            return new CSG.Plane(v3normal, w);
         }
 
 
@@ -2596,11 +2610,11 @@ module CSG {
             return result;
         }
 
-        public equals(n) {
+        public equals(n: Plane) {
             return this.normal.equals(n.normal) && this.w == n.w;
         }
 
-        public transform(matrix4x4) {
+        public transform(matrix4x4: Matrix4x4) {
             var ismirror = matrix4x4.isMirroring();
             // get two vectors in the plane:
             var r = this.normal.randomNonParallelVector();
@@ -2634,7 +2648,7 @@ module CSG {
         // In case the polygon is spanning, returns:
         // .front: a CSG.Polygon of the front part
         // .back: a CSG.Polygon of the back part
-        public splitPolygon(polygon) {
+        public splitPolygon(polygon: Polygon) {
             var result = {
                 type: null,
                 front: null,
@@ -2709,7 +2723,7 @@ module CSG {
                     if (backvertices.length >= 3) {
                         var prevvertex = backvertices[backvertices.length - 1];
                         for (var vertexindex = 0; vertexindex < backvertices.length; vertexindex++) {
-                            var vertex = backvertices[vertexindex];
+                            vertex = backvertices[vertexindex];
                             if (vertex.pos.distanceToSquared(prevvertex.pos) < EPS_SQUARED) {
                                 backvertices.splice(vertexindex, 1);
                                 vertexindex--;
@@ -2720,7 +2734,7 @@ module CSG {
                     if (frontvertices.length >= 3) {
                         var prevvertex = frontvertices[frontvertices.length - 1];
                         for (var vertexindex = 0; vertexindex < frontvertices.length; vertexindex++) {
-                            var vertex = frontvertices[vertexindex];
+                            vertex = frontvertices[vertexindex];
                             if (vertex.pos.distanceToSquared(prevvertex.pos) < EPS_SQUARED) {
                                 frontvertices.splice(vertexindex, 1);
                                 vertexindex--;
@@ -2741,7 +2755,7 @@ module CSG {
 
         // robust splitting of a line by a plane
         // will work even if the line is parallel to the plane
-        public splitLineBetweenPoints(p1, p2) {
+        public splitLineBetweenPoints(p1: Vector3D, p2: Vector3D) {
             var direction = p2.minus(p1);
             var labda = (this.w - this.normal.dot(p1)) / this.normal.dot(direction);
             if (isNaN(labda)) labda = 0;
@@ -2752,16 +2766,16 @@ module CSG {
         }
 
         // returns CSG.Vector3D
-        public intersectWithLine(line3d) {
+        public intersectWithLine(line3d: Line3D) {
             return line3d.intersectWithPlane(this);
         }
 
         // intersection of two planes
-        public intersectWithPlane(plane) {
+        public intersectWithPlane(plane: Plane) {
             return CSG.Line3D.fromPlanes(this, plane);
         }
 
-        public signedDistanceToPoint(point) {
+        public signedDistanceToPoint(point: Vector3D) {
             var t = this.normal.dot(point) - this.w;
             return t;
         }
@@ -2770,7 +2784,7 @@ module CSG {
             return "[normal: " + this.normal.toString() + ", w: " + this.w + "]";
         }
 
-        public mirrorPoint(point3d) {
+        public mirrorPoint(point3d: Vector3D) {
             var distance = this.signedDistanceToPoint(point3d);
             var mirrored = point3d.minus(this.normal.times(distance * 2.0));
             return mirrored;
@@ -2798,7 +2812,7 @@ module CSG {
         public shared: Polygon.Shared;
         public plane: Plane;
         public cachedBoundingSphere;
-        public cachedBoundingBox;
+        public cachedBoundingBox: Vector3D[];
 
         public static defaultShared: CSG.Polygon.Shared;
 
@@ -2925,7 +2939,7 @@ module CSG {
         // returns an array of two CSG.Vector3Ds (minimum coordinates and maximum coordinates)
         public boundingBox() {
             if (!this.cachedBoundingBox) {
-                var minpoint, maxpoint;
+                var minpoint: Vector3D, maxpoint: Vector3D;
                 var vertices = this.vertices;
                 var numvertices = vertices.length;
                 if (numvertices === 0) {
@@ -2954,7 +2968,7 @@ module CSG {
         }
 
         // Affine transformation of polygon. Returns a new CSG.Polygon
-        public transform(matrix4x4) {
+        public transform(matrix4x4: Matrix4x4) {
             var newvertices = this.vertices.map(function (v) {
                 return v.transform(matrix4x4);
             });
@@ -2976,7 +2990,7 @@ module CSG {
         }
 
         // project the 3D polygon onto a plane
-        public projectToOrthoNormalBasis(orthobasis) {
+        public projectToOrthoNormalBasis(orthobasis: OrthoNormalBasis) {
             var points2d = this.vertices.map(function (vertex) {
                 return orthobasis.to2D(vertex.pos);
             });
@@ -3199,7 +3213,7 @@ module CSG {
             return walls;
         }
 
-        public static verticesConvex(vertices, planenormal) {
+        public static verticesConvex(vertices: Vertex[], planenormal) {
             var numvertices = vertices.length;
             if (numvertices > 2) {
                 var prevprevpos = vertices[numvertices - 2].pos;
@@ -3217,7 +3231,7 @@ module CSG {
         }
 
         // Create a polygon from the given points
-        public static createFromPoints(points, shared?, plane?) {
+        public static createFromPoints(points: number[][], shared?: CSG.Polygon.Shared, plane?: Plane) {
             var normal;
             if (arguments.length < 3) {
                 // initially set a dummy vertex normal:
@@ -3231,7 +3245,7 @@ module CSG {
                 var vertex = new CSG.Vertex(vec);
                 vertices.push(vertex);
             });
-            var polygon;
+            var polygon: CSG.Polygon;
             if (arguments.length < 3) {
                 polygon = new CSG.Polygon(vertices, shared);
             } else {
@@ -3422,7 +3436,7 @@ module CSG {
             return this.polygon;
         }
 
-        public getPolygons(result) {
+        public getPolygons(result: Polygon[]) {
             var children = [this];
             var queue = [children];
             var i, j, l, node;
@@ -3523,7 +3537,7 @@ module CSG {
         // this should be called whenever the polygon is split
         // a child should be created for every fragment of the split polygon
         // returns the newly created child
-        public addChild(polygon) {
+        public addChild(polygon: Polygon) {
             var newchild = new CSG.PolygonTreeNode();
             newchild.parent = this;
             newchild.polygon = polygon;
@@ -3569,7 +3583,7 @@ module CSG {
         public polygonTree = new CSG.PolygonTreeNode();
         public rootnode = new CSG.Node(null);
 
-        constructor(polygons) {
+        constructor(polygons: Polygon[]) {
             this.polygonTree = new CSG.PolygonTreeNode();
             this.rootnode = new CSG.Node(null);
             if (polygons) this.addPolygons(polygons);
@@ -3583,18 +3597,18 @@ module CSG {
 
         // Remove all polygons in this BSP tree that are inside the other BSP tree
         // `tree`.
-        public clipTo(tree, alsoRemovecoplanarFront?) {
+        public clipTo(tree: Tree, alsoRemovecoplanarFront?: boolean) {
             alsoRemovecoplanarFront = alsoRemovecoplanarFront ? true : false;
             this.rootnode.clipTo(tree, alsoRemovecoplanarFront);
         }
 
         public allPolygons() {
-            var result = [];
+            var result: Polygon[] = [];
             this.polygonTree.getPolygons(result);
             return result;
         }
 
-        public addPolygons(polygons) {
+        public addPolygons(polygons: Polygon[]) {
             var _this = this;
             var polygontreenodes = polygons.map(function (p) {
                 return _this.polygonTree.addChild(p);
@@ -3615,9 +3629,9 @@ module CSG {
         public plane: Plane;
         public front;
         public back;
-        public polygontreenodes;
+        public polygontreenodes: PolygonTreeNode[];
 
-        constructor(public parent) {
+        constructor(public parent: Node) {
             this.plane = null;
             this.front = null;
             this.back = null;
@@ -3643,7 +3657,7 @@ module CSG {
 
         // clip polygontreenodes to our plane
         // calls remove() for all clipped PolygonTreeNodes
-        public clipPolygons(polygontreenodes, alsoRemovecoplanarFront) {
+        public clipPolygons(polygontreenodes: PolygonTreeNode[], alsoRemovecoplanarFront: boolean) {
             var args = { 'node': this, 'polygontreenodes': polygontreenodes }
             var node;
             var stack = [];
@@ -3685,7 +3699,7 @@ module CSG {
 
         // Remove all polygons in this BSP tree that are inside the other BSP tree
         // `tree`.
-        public clipTo(tree, alsoRemovecoplanarFront) {
+        public clipTo(tree: Tree, alsoRemovecoplanarFront: boolean) {
             var node = this, stack = [];
             do {
                 if (node.polygontreenodes.length > 0) {
@@ -3697,7 +3711,7 @@ module CSG {
             } while (typeof (node) !== 'undefined');
         }
 
-        public addPolygonTreeNodes(polygontreenodes) {
+        public addPolygonTreeNodes(polygontreenodes: PolygonTreeNode[]) {
             var args = { 'node': this, 'polygontreenodes': polygontreenodes };
             var node;
             var stack = [];
@@ -3734,7 +3748,7 @@ module CSG {
             } while (typeof (args) !== 'undefined');
         }
 
-        public getParentPlaneNormals(normals, maxdepth) {
+        public getParentPlaneNormals(normals: Vector3D[], maxdepth: number) {
             if (maxdepth > 0) {
                 if (this.parent) {
                     normals.push(this.parent.plane.normal);
@@ -3758,7 +3772,7 @@ module CSG {
             }
         }
 
-        public plus(m) {
+        public plus(m: Matrix4x4) {
             var r = [];
             for (var i = 0; i < 16; i++) {
                 r[i] = this.elements[i] + m.elements[i];
@@ -3766,7 +3780,7 @@ module CSG {
             return new CSG.Matrix4x4(r);
         }
 
-        public minus(m) {
+        public minus(m: Matrix4x4) {
             var r = [];
             for (var i = 0; i < 16; i++) {
                 r[i] = this.elements[i] - m.elements[i];
@@ -3775,7 +3789,7 @@ module CSG {
         }
 
         // right multiply by another 4x4 matrix:
-        public multiply(m) {
+        public multiply(m: Matrix4x4) {
             // cache elements in local variables, for speedup:
             var this0 = this.elements[0];
             var this1 = this.elements[1];
@@ -3884,7 +3898,7 @@ module CSG {
         // Right multiply the matrix by a CSG.Vector2D (interpreted as 2 row, 1 column)
         // (result = M*v)
         // Fourth element is taken as 1
-        public rightMultiply1x2Vector(v) {
+        public rightMultiply1x2Vector(v: Vector2D) {
             var v0 = v.x;
             var v1 = v.y;
             var v2 = 0;
@@ -3906,7 +3920,7 @@ module CSG {
         // Multiply a CSG.Vector2D (interpreted as 2 column, 1 row) by this matrix
         // (result = v*M)
         // Fourth element is taken as 1
-        public leftMultiply1x2Vector(v) {
+        public leftMultiply1x2Vector(v: Vector2D) {
             var v0 = v.x;
             var v1 = v.y;
             var v2 = 0;
@@ -3944,7 +3958,7 @@ module CSG {
         }
 
         // Create a rotation matrix for rotating around the x axis
-        public static rotationX(degrees) {
+        public static rotationX(degrees: number) {
             var radians = degrees * Math.PI * (1.0 / 180.0);
             var cos = Math.cos(radians);
             var sin = Math.sin(radians);
@@ -3955,7 +3969,7 @@ module CSG {
         }
 
         // Create a rotation matrix for rotating around the y axis
-        public static rotationY(degrees) {
+        public static rotationY(degrees: number) {
             var radians = degrees * Math.PI * (1.0 / 180.0);
             var cos = Math.cos(radians);
             var sin = Math.sin(radians);
@@ -3966,7 +3980,7 @@ module CSG {
         }
 
         // Create a rotation matrix for rotating around the z axis
-        public static rotationZ(degrees) {
+        public static rotationZ(degrees: number) {
             var radians = degrees * Math.PI * (1.0 / 180.0);
             var cos = Math.cos(radians);
             var sin = Math.sin(radians);
@@ -3977,7 +3991,7 @@ module CSG {
         }
 
         // Matrix for rotation about arbitrary point and axis
-        public static rotation(rotationCenter, rotationAxis, degrees) {
+        public static rotation(rotationCenter: CSG.Vector3D, rotationAxis: CSG.Vector3D, degrees: number) {
             rotationCenter = new CSG.Vector3D(rotationCenter);
             rotationAxis = new CSG.Vector3D(rotationAxis);
             var rotationPlane = CSG.Plane.fromNormalAndPoint(rotationAxis, rotationCenter);
@@ -3991,15 +4005,17 @@ module CSG {
         }
 
         // Create an affine matrix for translation:
-        public static translation(v) {
+        public static translation(v: number[]): Matrix4x4;
+        public static translation(v: Vector3D): Matrix4x4;
+        public static translation(v: any): Matrix4x4 {
             // parse as CSG.Vector3D, so we can pass an array or a CSG.Vector3D
-            var vec = new CSG.Vector3D(v);
+            var vec = new Vector3D(v);
             var els = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, vec.x, vec.y, vec.z, 1];
-            return new CSG.Matrix4x4(els);
+            return new Matrix4x4(els);
         }
 
         // Create an affine matrix for mirroring into an arbitrary plane:
-        public static mirroring(plane) {
+        public static mirroring(plane: Plane) {
             var nx = plane.normal.x;
             var ny = plane.normal.y;
             var nz = plane.normal.z;
@@ -4010,17 +4026,19 @@ module CSG {
                 (-2.0 * nx * nz), (-2.0 * ny * nz), (1.0 - 2.0 * nz * nz), 0,
                 (2.0 * nx * w), (2.0 * ny * w), (2.0 * nz * w), 1
             ];
-            return new CSG.Matrix4x4(els);
+            return new Matrix4x4(els);
         }
 
         // Create an affine matrix for scaling:
-        public static scaling(v) {
+        public static scaling(v: number[]): Matrix4x4;
+        public static scaling(v: Vector3D): Matrix4x4;
+        public static scaling(v: any): Matrix4x4 {
             // parse as CSG.Vector3D, so we can pass an array or a CSG.Vector3D
-            var vec = new CSG.Vector3D(v);
+            var vec = new Vector3D(v);
             var els = [
                 vec.x, 0, 0, 0, 0, vec.y, 0, 0, 0, 0, vec.z, 0, 0, 0, 0, 1
             ];
-            return new CSG.Matrix4x4(els);
+            return new Matrix4x4(els);
         }
     }
 
@@ -4070,22 +4088,22 @@ module CSG {
             }
         }
 
-        public static fromAngle(radians) {
+        public static fromAngle(radians: number) {
             return CSG.Vector2D.fromAngleRadians(radians);
         }
 
-        public static fromAngleDegrees(degrees) {
+        public static fromAngleDegrees(degrees: number) {
             var radians = Math.PI * degrees / 180;
             return CSG.Vector2D.fromAngleRadians(radians);
         }
 
-        public static fromAngleRadians(radians) {
+        public static fromAngleRadians(radians: number) {
             return CSG.Vector2D.Create(Math.cos(radians), Math.sin(radians));
         }
 
         // This does the same as new CSG.Vector2D(x,y) but it doesn't go through the constructor
         // and the parameters are not validated. Is much faster.
-        public static Create(x, y) {
+        public static Create(x: number, y: number) {
             var result = <Vector2D>Object.create(CSG.Vector2D.prototype);
             result.x = x;
             result.y = y;
@@ -4094,7 +4112,7 @@ module CSG {
 
     
         // extend to a 3D vector by adding a z coordinate:
-        public toVector3D(z) {
+        public toVector3D(z: number) {
             return new CSG.Vector3D(this.x, this.y, z);
         }
 
@@ -4118,11 +4136,11 @@ module CSG {
             return CSG.Vector2D.Create(this.x - a.x, this.y - a.y);
         }
 
-        public times(a) {
+        public times(a: number) {
             return CSG.Vector2D.Create(this.x * a, this.y * a);
         }
 
-        public dividedBy(a) {
+        public dividedBy(a: number) {
             return CSG.Vector2D.Create(this.x / a, this.y / a);
         }
 
@@ -4130,7 +4148,7 @@ module CSG {
             return this.x * a.x + this.y * a.y;
         }
 
-        public lerp(a, t) {
+        public lerp(a: Vector2D, t: number) {
             return this.plus(a.minus(this).times(t));
         }
 
@@ -4138,11 +4156,11 @@ module CSG {
             return Math.sqrt(this.dot(this));
         }
 
-        public distanceTo(a) {
+        public distanceTo(a: Vector2D) {
             return this.minus(a).length();
         }
 
-        public distanceToSquared(a) {
+        public distanceToSquared(a: Vector2D) {
             return this.minus(a).lengthSquared();
         }
 
@@ -4165,11 +4183,11 @@ module CSG {
 
         // Right multiply by a 4x4 matrix (the vector is interpreted as a row vector)
         // Returns a new CSG.Vector2D
-        public multiply4x4(matrix4x4) {
+        public multiply4x4(matrix4x4: Matrix4x4) {
             return matrix4x4.leftMultiply1x2Vector(this);
         }
 
-        public transform(matrix4x4) {
+        public transform(matrix4x4: Matrix4x4) {
             return matrix4x4.leftMultiply1x2Vector(this);
         }
 
@@ -4227,7 +4245,7 @@ module CSG {
             this.w = w;
         }
 
-        public static fromPoints(p1, p2) {
+        public static fromPoints(p1: Vector2D, p2: Vector2D) {
             p1 = new CSG.Vector2D(p1);
             p2 = new CSG.Vector2D(p2);
             var direction = p2.minus(p1);
@@ -4242,7 +4260,7 @@ module CSG {
             return new CSG.Line2D(this.normal.negated(), -this.w);
         }
 
-        public equals(l) {
+        public equals(l: Line2D) {
             return (l.normal.equals(this.normal) && (l.w == this.w));
         }
 
@@ -4254,14 +4272,14 @@ module CSG {
             return this.normal.normal();
         }
 
-        public xAtY(y) {
+        public xAtY(y: number) {
             // (py == y) && (normal * p == w)
             // -> px = (w - normal._y * y) / normal.x
             var x = (this.w - this.normal.y * y) / this.normal.x;
             return x;
         }
 
-        public absDistanceToPoint(point) {
+        public absDistanceToPoint(point: Vector2D) {
             point = new CSG.Vector2D(point);
             var point_projected = point.dot(this.normal);
             var distance = Math.abs(point_projected - this.w);
@@ -4276,13 +4294,13 @@ module CSG {
          */
 
         // intersection between two lines, returns point as Vector2D
-        public intersectWithLine(line2d) {
+        public intersectWithLine(line2d: Line2D) {
             var point = CSG.solve2Linear(this.normal.x, this.normal.y, line2d.normal.x, line2d.normal.y, this.w, line2d.w);
             var result = new CSG.Vector2D(point); // make  vector2d
             return result;
         }
 
-        public transform(matrix4x4) {
+        public transform(matrix4x4: Matrix4x4) {
             var origin = new CSG.Vector2D(0, 0);
             var pointOnPlane = this.normal.times(this.w);
             var neworigin = origin.multiply4x4(matrix4x4);
@@ -4309,14 +4327,14 @@ module CSG {
             this.direction = direction.unit();
         }
 
-        public static fromPoints(p1, p2) {
-            p1 = new CSG.Vector3D(p1);
-            p2 = new CSG.Vector3D(p2);
-            var direction = p2.minus(p1);
-            return new CSG.Line3D(p1, direction);
+        public static fromPoints(p1: Vector3D, p2: Vector3D) {
+            var v3p1 = new CSG.Vector3D(p1);
+            var v3p2 = new CSG.Vector3D(p2);
+            var direction = v3p2.minus(v3p1);
+            return new CSG.Line3D(v3p1, direction);
         }
 
-        public static fromPlanes(p1, p2) {
+        public static fromPlanes(p1: Plane, p2: Plane) {
             var direction = p1.normal.cross(p2.normal);
             var l = direction.length();
             if (l < 1e-10) {
@@ -4346,7 +4364,7 @@ module CSG {
         }
 
 
-        public intersectWithPlane(plane) {
+        public intersectWithPlane(plane: Plane) {
             // plane: plane.normal * p = plane.w
             // line: p=line.point + labda * line.direction
             var labda = (plane.w - plane.normal.dot(this.point)) / plane.normal.dot(this.direction);
@@ -4354,7 +4372,7 @@ module CSG {
             return point;
         }
 
-        public clone(line) {
+        public clone() {
             return new CSG.Line3D(this.point.clone(), this.direction.clone());
         }
 
@@ -4362,7 +4380,7 @@ module CSG {
             return new CSG.Line3D(this.point.clone(), this.direction.negated());
         }
 
-        public transform(matrix4x4) {
+        public transform(matrix4x4: Matrix4x4) {
             var newpoint = this.point.multiply4x4(matrix4x4);
             var pointPlusDirection = this.point.plus(this.direction);
             var newPointPlusDirection = pointPlusDirection.multiply4x4(matrix4x4);
@@ -4370,14 +4388,14 @@ module CSG {
             return new CSG.Line3D(newpoint, newdirection);
         }
 
-        public closestPointOnLine(point) {
+        public closestPointOnLine(point: Vector3D) {
             point = new CSG.Vector3D(point);
             var t = point.minus(this.point).dot(this.direction) / this.direction.dot(this.direction);
             var closestpoint = this.point.plus(this.direction.times(t));
             return closestpoint;
         }
 
-        public distanceToPoint(point) {
+        public distanceToPoint(point: Vector3D) {
             point = new CSG.Vector3D(point);
             var closestpoint = this.closestPointOnLine(point);
             var distancevector = point.minus(closestpoint);
@@ -4385,7 +4403,7 @@ module CSG {
             return distance;
         }
 
-        public equals(line3d) {
+        public equals(line3d: Line3D) {
             if (!this.direction.equals(line3d.direction)) return false;
             var distance = this.distanceToPoint(line3d.point);
             if (distance > 1e-8) return false;
@@ -4399,10 +4417,10 @@ module CSG {
     // Reprojects points on a 3D plane onto a 2D plane
     // or from a 2D plane back onto the 3D plane
     export class OrthoNormalBasis extends CxG {
-        public v;
-        public u;
+        public v: Vector3D;
+        public u: Vector3D;
         public plane: Plane;
-        public planeorigin;
+        public planeorigin: Vector3D;
 
         constructor(plane: Plane, rightvector?: Vector3D) {
             super();
@@ -4425,7 +4443,7 @@ module CSG {
         // For example: CSG.OrthoNormalBasis.GetCartesian("-Y","Z")
         //   will return an orthonormal basis where the 2d X axis maps to the 3D inverted Y axis, and
         //   the 2d Y axis maps to the 3D Z axis.
-        public static GetCartesian = function (xaxisid, yaxisid) {
+        public static GetCartesian (xaxisid: string, yaxisid: string) {
             var axisid = xaxisid + "/" + yaxisid;
             var planenormal, rightvector;
             if (axisid == "X/Y") {
@@ -4507,7 +4525,7 @@ module CSG {
         }
 
         // The z=0 plane, with the 3D x and y vectors mapped to the 2D x and y vector
-        public static Z0Plane = function () {
+        public static Z0Plane() {
             var plane = new CSG.Plane(new CSG.Vector3D([0, 0, 1]), 0);
             return new CSG.OrthoNormalBasis(plane, new CSG.Vector3D([1, 0, 0]));
         }
@@ -4531,15 +4549,15 @@ module CSG {
             ]);
         }
 
-        public to2D(vec3) {
+        public to2D(vec3: Vector3D) {
             return new CSG.Vector2D(vec3.dot(this.u), vec3.dot(this.v));
         }
 
-        public to3D(vec2) {
+        public to3D(vec2: Vector2D) {
             return this.planeorigin.plus(this.u.times(vec2.x)).plus(this.v.times(vec2.y));
         }
 
-        public line3Dto2D(line3d) {
+        public line3Dto2D(line3d: Line3D) {
             var a = line3d.point;
             var b = line3d.direction.plus(a);
             var a2d = this.to2D(a);
@@ -4547,7 +4565,7 @@ module CSG {
             return CSG.Line2D.fromPoints(a2d, b2d);
         }
 
-        public line2Dto3D(line2d) {
+        public line2Dto3D(line2d: Line2D) {
             var a = line2d.origin();
             var b = line2d.direction().plus(a);
             var a3d = this.to3D(a);
@@ -4555,7 +4573,7 @@ module CSG {
             return CSG.Line3D.fromPoints(a3d, b3d);
         }
 
-        public transform(matrix4x4) {
+        public transform(matrix4x4: Matrix4x4) {
             // todo: this may not work properly in case of mirroring
             var newplane = this.plane.transform(matrix4x4);
             var rightpoint_transformed = this.u.transform(matrix4x4);
@@ -4587,7 +4605,7 @@ module CSG {
     // Get the x coordinate of a point with a certain y coordinate, interpolated between two
     // points (CSG.Vector2D).
     // Interpolation is robust even if the points have the same y coordinate
-    export function interpolateBetween2DPointsForY(point1, point2, y) {
+    export function interpolateBetween2DPointsForY(point1: Vector2D, point2: Vector2D, y: number) {
         var f1 = y - point1.y;
         var f2 = point2.y - point1.y;
         if (f2 < 0) {
@@ -4610,7 +4628,7 @@ module CSG {
 
     // Retesselation function for a set of coplanar polygons. See the introduction at the top of
     // this file.
-    export function reTesselateCoplanarPolygons(sourcepolygons, destpolygons) {
+    export function reTesselateCoplanarPolygons(sourcepolygons: CSG.Polygon[], destpolygons: CSG.Polygon[]) {
         var EPS = 1e-5;
 
         var numpolygons = sourcepolygons.length;
@@ -4957,10 +4975,10 @@ module CSG {
     //   tolerance: The maximum difference for each parameter allowed to be considered a match
     export class fuzzyFactory {
 
-        public multiplier;
+        public multiplier: number;
         public lookuptable;
 
-        constructor(numdimensions, tolerance) {
+        constructor(numdimensions: number, tolerance: number) {
             this.lookuptable = {};
             this.multiplier = 1.0 / tolerance;
         }
@@ -5005,8 +5023,8 @@ module CSG {
     //////////////////////////////////////
     export class fuzzyCSGFactory {
 
-        public vertexfactory;
-        public planefactory;
+        public vertexfactory: fuzzyFactory;
+        public planefactory: fuzzyFactory;
         public polygonsharedfactory;
 
         constructor() {
@@ -5015,7 +5033,7 @@ module CSG {
             this.polygonsharedfactory = {};
         }
 
-        public getPolygonShared(sourceshared) {
+        public getPolygonShared(sourceshared: Polygon.Shared): Polygon.Shared {
             var hash = sourceshared.getHash();
             if (hash in this.polygonsharedfactory) {
                 return this.polygonsharedfactory[hash];
@@ -5027,7 +5045,7 @@ module CSG {
 
         public getVertex(sourcevertex: Vertex) {
             var elements = [sourcevertex.pos.x, sourcevertex.pos.y, sourcevertex.pos.z];
-            var result = this.vertexfactory.lookupOrCreate(elements, function (els) {
+            var result: Vertex = this.vertexfactory.lookupOrCreate(elements, function (els) {
                 return sourcevertex;
             });
             return result;
@@ -5035,13 +5053,13 @@ module CSG {
 
         public getPlane(sourceplane: Plane) {
             var elements = [sourceplane.normal.x, sourceplane.normal.y, sourceplane.normal.z, sourceplane.w];
-            var result = this.planefactory.lookupOrCreate(elements, function (els) {
+            var result: Plane = this.planefactory.lookupOrCreate(elements, function (els) {
                 return sourceplane;
             });
             return result;
         }
 
-        public getPolygon(sourcepolygon) {
+        public getPolygon(sourcepolygon: Polygon) {
             var newplane = this.getPlane(sourcepolygon.plane);
             var newshared = this.getPolygonShared(sourcepolygon.shared);
             var _this = this;
@@ -5069,7 +5087,7 @@ module CSG {
             return new CSG.Polygon(newvertices_dedup, newshared, newplane);
         }
 
-        public getCSG(sourcecsg) {
+        public getCSG(sourcecsg: CSG) {
             var _this = this;
             var newpolygons = [];
             sourcecsg.polygons.forEach(function (polygon) {
@@ -5115,20 +5133,20 @@ module CSG {
 
         public roundedCylinder;
 
-        public _transform(matrix4x4) {
+        public _transform(matrix4x4: Matrix4x4) {
             var result = new CSG.Properties();
             CSG.Properties.transformObj(this, result, matrix4x4);
             return result;
         }
 
-        public _merge(otherproperties) {
+        public _merge(otherproperties: Properties) {
             var result = new CSG.Properties();
             CSG.Properties.cloneObj(this, result);
             CSG.Properties.addFrom(result, otherproperties);
             return result;
         }
 
-        public static transformObj(source, result, matrix4x4) {
+        public static transformObj(source, result, matrix4x4: Matrix4x4) {
             for (var propertyname in source) {
                 if (propertyname == "_transform") continue;
                 if (propertyname == "_merge") continue;
@@ -5170,7 +5188,7 @@ module CSG {
             }
         }
 
-        public static addFrom(result, otherproperties) {
+        public static addFrom(result, otherproperties: Properties) {
             for (var propertyname in otherproperties) {
                 if (propertyname == "_transform") continue;
                 if (propertyname == "_merge") continue;
@@ -5224,7 +5242,7 @@ module CSG {
             return new CSG.Connector(this.point, axisvector, normalvector);
         }
 
-        public transform(matrix4x4) {
+        public transform(matrix4x4: Matrix4x4) {
             var point = this.point.multiply4x4(matrix4x4);
             var axisvector = this.point.plus(this.axisvector).multiply4x4(matrix4x4).minus(point);
             var normalvector = this.point.plus(this.normalvector).multiply4x4(matrix4x4).minus(point);
@@ -5237,7 +5255,7 @@ module CSG {
         //           true: the 'axis' vectors of the connectors should point in opposite direction
         //   normalrotation: degrees of rotation between the 'normal' vectors of the two
         //                   connectors
-        public getTransformationTo(other, mirror, normalrotation) {
+        public getTransformationTo(other: Connector, mirror: boolean, normalrotation: number) {
             mirror = mirror ? true : false;
             normalrotation = normalrotation ? Number(normalrotation) : 0;
             var us = this.normalized();
@@ -5278,7 +5296,7 @@ module CSG {
         }
 
         // creates a new Connector, with the connection point moved in the direction of the axisvector
-        public extend(distance) {
+        public extend(distance: number) {
             var newpoint = this.point.plus(this.axisvector.unit().times(distance));
             return new CSG.Connector(newpoint, this.axisvector, this.normalvector);
         }
@@ -5289,7 +5307,7 @@ module CSG {
         public connectors_: Connector[];
         public closed: boolean;
 
-        constructor(connectors) {
+        constructor(connectors: Connector[]) {
             this.connectors_ = connectors ? connectors.slice() : [];
         }
 
@@ -5353,11 +5371,11 @@ module CSG {
 
 
 
-        public setClosed(bool) {
+        public setClosed(bool: boolean) {
             this.closed = !!closed;
         }
 
-        public appendConnector(conn) {
+        public appendConnector(conn: Connector) {
             this.connectors_.push(conn);
         }
 
@@ -5511,7 +5529,7 @@ module CSG {
         }
 
 
-        public concat(otherpath) {
+        public concat(otherpath: Path2D) {
             if (this.closed || otherpath.closed) {
                 throw new Error("Paths must not be closed");
             }
@@ -5519,7 +5537,7 @@ module CSG {
             return new CSG.Path2D(newpoints);
         }
 
-        public appendPoint(point) {
+        public appendPoint(point: Vector2D) {
             if (this.closed) {
                 throw new Error("Path must not be closed");
             }
@@ -5528,7 +5546,7 @@ module CSG {
             return new CSG.Path2D(newpoints);
         }
 
-        public appendPoints(points) {
+        public appendPoints(points: Vector2D[]) {
             if (this.closed) {
                 throw new Error("Path must not be closed");
             }
@@ -5585,7 +5603,7 @@ module CSG {
             return CAG.fromPoints(this.points);
         }
 
-        public transform(matrix4x4) {
+        public transform(matrix4x4: Matrix4x4) {
             var newpoints = this.points.map(function (point) {
                 return point.multiply4x4(matrix4x4);
             });
@@ -5721,7 +5739,7 @@ module CSG {
          This implementation follows the SVG arc specs. For the details see
          http://www.w3.org/TR/SVG/paths.html#PathDataEllipticalArcCommands
          */
-        public appendArc(endpoint, options) {
+        public appendArc(endpoint: Vector2D, options) {
             if (arguments.length < 2) {
                 options = {};
             }
@@ -5816,7 +5834,7 @@ module CSG {
 
 }
 
-class CAG extends CxG {
+class CAG extends CxG implements ICenter {
     //////////////////
     // CAG: solid area geometry: like CSG but 2D
     // Each area consists of a number of sides
@@ -5831,7 +5849,7 @@ class CAG extends CxG {
     }
 
     // Construct a CAG from a list of `CAG.Side` instances.
-    public static fromSides(sides) {
+    public static fromSides(sides: CAG.Side[]) {
         var cag = new CAG();
         cag.sides = sides;
         return cag;
@@ -5840,10 +5858,10 @@ class CAG extends CxG {
     // Construct a CAG from a list of points (a polygon)
     // Rotation direction of the points is not relevant. Points can be a convex or concave polygon.
     // Polygon must not self intersect
-    public static fromPoints(points) {
+    public static fromPoints(points: CSG.Vector2D[]) {
         var numpoints = points.length;
         if (numpoints < 3) throw new Error("CAG shape needs at least 3 points");
-        var sides = [];
+        var sides: CAG.Side[] = [];
         var prevpoint = new CSG.Vector2D(points[numpoints - 1]);
         var prevvertex = new CAG.Vertex(prevpoint);
         points.map(function (p) {
@@ -5870,7 +5888,7 @@ class CAG extends CxG {
 
     // Like CAG.fromPoints but does not check if it's a valid polygon.
     // Points should rotate counter clockwise
-    public static fromPointsNoCheck(points) {
+    public static fromPointsNoCheck(points: CSG.Vector2D[]) {
         var sides = [];
         var prevpoint = new CSG.Vector2D(points[points.length - 1]);
         var prevvertex = new CAG.Vertex(prevpoint);
@@ -5886,7 +5904,7 @@ class CAG extends CxG {
 
     // Converts a CSG to a CAG. The CSG must consist of polygons with only z coordinates +1 and -1
     // as constructed by CAG._toCSGWall(-1, 1). This is so we can use the 3D union(), intersect() etc
-    public static fromFakeCSG(csg) {
+    public static fromFakeCSG(csg: CSG) {
         var sides = csg.polygons.map(function (p) {
             return CAG.Side._fromFakePolygon(p);
         })
@@ -6053,7 +6071,7 @@ class CAG extends CxG {
         return CSG.fromPolygons(polygons);
     }
 
-    public _toVector3DPairs(m) {
+    public _toVector3DPairs(m: CSG.Matrix4x4) {
         // transform m
         var pairs = this.sides.map(function (side) {
             var p0 = side.vertex0.pos, p1 = side.vertex1.pos;
@@ -6086,7 +6104,7 @@ class CAG extends CxG {
         var axisVector = options.axisVector || defaultAxis;
         var normalVector = options.normalVector || defaultNormal;
         // will override above if options has toConnector
-        var toConnector = options.toConnector ||
+        var toConnector: CSG.Connector = options.toConnector ||
             new CSG.Connector(translation, axisVector, normalVector);
         // resulting transform
         var m = thisConnector.getTransformationTo(toConnector, false, 0);
@@ -6159,7 +6177,9 @@ class CAG extends CxG {
         return polygons;
     }
 
-    public union(cag) {
+    public union(cag: CAG[]): CAG;
+    public union(cag: CAG): CAG;
+    public union(cag: any): CAG {
         var cags;
         if (cag instanceof Array) {
             cags = cag;
@@ -6174,7 +6194,9 @@ class CAG extends CxG {
         return CAG.fromFakeCSG(r2).canonicalized();
     }
 
-    public subtract(cag) {
+    public subtract(cag: CAG[]): CAG;
+    public subtract(cag: CAG): CAG
+    public subtract(cag: any): CAG {
         var cags;
         if (cag instanceof Array) {
             cags = cag;
@@ -6192,7 +6214,9 @@ class CAG extends CxG {
         return r2;
     }
 
-    public intersect(cag) {
+    public intersect(cag: CAG[]): CAG;
+    public intersect(cag: CAG): CAG
+    public intersect(cag: any): CAG {
         var cags;
         if (cag instanceof Array) {
             cags = cag;
@@ -6210,7 +6234,7 @@ class CAG extends CxG {
         return r2;
     }
 
-    public transform(matrix4x4) {
+    public transform(matrix4x4: CSG.Matrix4x4) {
         var ismirror = matrix4x4.isMirroring();
         var newsides = this.sides.map(function (side) {
             return side.transform(matrix4x4);
@@ -6242,8 +6266,8 @@ class CAG extends CxG {
         return CAG.fromSides(newsides);
     }
 
-    public getBounds() {
-        var minpoint;
+    public getBounds(): CSG.Vector2D[] {
+        var minpoint: CSG.Vector2D;
         if (this.sides.length === 0) {
             minpoint = new CSG.Vector2D(0, 0);
         } else {
@@ -6380,7 +6404,7 @@ class CAG extends CxG {
     //
     // options:
     //   {symmetrical: true}  // extrude symmetrically in two directions about the plane
-    public extrudeInOrthonormalBasis(orthonormalbasis, depth, options?) {
+    public extrudeInOrthonormalBasis(orthonormalbasis: CSG.OrthoNormalBasis, depth: number, options?) {
         // first extrude in the regular Z plane:
         if (!(orthonormalbasis instanceof CSG.OrthoNormalBasis)) {
             throw new Error("extrudeInPlane: the first parameter should be a CSG.OrthoNormalBasis");
@@ -6718,7 +6742,7 @@ class CAG extends CxG {
         return result;
     }
 
-    public center(cAxes) {
+    public center(cAxes: string[]) {
         var axes = ['x', 'y'];
 
         cAxes = Array.prototype.map.call(arguments, function (a) {
@@ -6811,7 +6835,7 @@ module CAG {
             this.vertex1 = vertex1;
         }
 
-        public static _fromFakePolygon(polygon) {
+        public static _fromFakePolygon(polygon: CSG.Polygon) {
             polygon.vertices.forEach(function (v) {
                 if (!((v.pos.z >= -1.001) && (v.pos.z < -0.999)) && !((v.pos.z >= 0.999) && (v.pos.z < 1.001))) {
                     throw ("Assertion failed: _fromFakePolygon expects abs z values of 1");
@@ -6863,7 +6887,7 @@ module CAG {
             return new CSG.Polygon(vertices);
         }
 
-        public transform(matrix4x4) {
+        public transform(matrix4x4: CSG.Matrix4x4) {
             var newp1 = this.vertex0.pos.transform(matrix4x4);
             var newp2 = this.vertex1.pos.transform(matrix4x4);
             return new CAG.Side(new CAG.Vertex(newp1), new CAG.Vertex(newp2));
@@ -6907,7 +6931,7 @@ module CAG {
         }
 
 
-        public getVertex(sourcevertex: Vertex) {
+        public getVertex(sourcevertex: Vertex): Vertex {
             var elements = [sourcevertex.pos.x, sourcevertex.pos.y];
             var result = this.vertexfactory.lookupOrCreate(elements, function (els) {
                 return sourcevertex;
@@ -6915,13 +6939,13 @@ module CAG {
             return result;
         }
 
-        public getSide(sourceside) {
+        public getSide(sourceside: Side) {
             var vertex0 = this.getVertex(sourceside.vertex0);
             var vertex1 = this.getVertex(sourceside.vertex1);
             return new CAG.Side(vertex0, vertex1);
         }
 
-        public getCAG(sourcecag) {
+        public getCAG(sourcecag: CAG) {
             var _this = this;
             var newsides = sourcecag.sides.map(function (side) {
                 return _this.getSide(side);
@@ -6954,7 +6978,7 @@ But we'll keep CSG.Polygon2D as a stub for backwards compatibility
 */
 module CSG {
     export class Polygon2D extends CAG {
-        constructor(points) {
+        constructor(points: Vector2D[]) {
             super();
             var cag = CAG.fromPoints(points);
             this.sides = cag.sides;
