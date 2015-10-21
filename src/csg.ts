@@ -4328,10 +4328,10 @@ module CSG {
         }
 
         public static fromPoints(p1: Vector3D, p2: Vector3D) {
-            var v3p1 = new CSG.Vector3D(p1);
-            var v3p2 = new CSG.Vector3D(p2);
-            var direction = v3p2.minus(v3p1);
-            return new CSG.Line3D(v3p1, direction);
+            p1 = new CSG.Vector3D(p1);
+            p2 = new CSG.Vector3D(p2);
+            var direction = p2.minus(p1);
+            return new CSG.Line3D(p1, direction);
         }
 
         public static fromPlanes(p1: Plane, p2: Plane) {
