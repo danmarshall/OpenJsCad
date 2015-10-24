@@ -11,7 +11,7 @@
 module THREE {
     export var CSG = {
         // convert CSG object to three.js mesh.
-        fromCSG: function (csg, defaultColor) {
+        fromCSG: function (csg: CSG, defaultColor) {
 
             var i, j, vertices, face,
                 three_geometry = new Geometry(),
@@ -64,7 +64,7 @@ module THREE {
                 // create a mesh face using color (not opacity~material)
                 for (var k = 2; k < vertices.length; k++) {
                     face = new Face3(vertices[0], vertices[k - 1], vertices[k],
-                        new Vector3().copy(polygon.plane.normal),
+                        new Vector3().copy(<any>polygon.plane.normal),
                         colors[colorKey], materialIdx);
                     face.materialIdx = materialIdx;
                     three_geometry.faces.push(face);

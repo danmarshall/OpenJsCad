@@ -30,11 +30,18 @@ module OpenJsCad {
     };
 
     export interface IViewerOptions {
-        drawLines: boolean;
-        drawFaces: boolean;
-        color: number[];
-        bgColor: number;
-        noWebGL: boolean;
+        drawLines?: boolean;
+        drawFaces?: boolean;
+        color?: number[];
+        bgColor?: number;
+        noWebGL?: boolean;
+    }
+
+    export interface ProcessorOptions extends IViewerOptions {
+        verbose?: boolean;
+        viewerwidth?: number;
+        viewerheight?: number;
+        viewerheightratio?: number;
     }
 
     interface IDrawOptions {
@@ -647,10 +654,6 @@ module OpenJsCad {
      * - noWebGL: force render without webGL
      * - verbose: show additional info (currently only time used for rendering)
      */
-    export interface IProcessorOptions {
-        openJsCadPath?: string;
-        libraries?: any[];
-    }
 
     export interface ViewerSize {
         widthDefault: string;
@@ -658,15 +661,6 @@ module OpenJsCad {
         width: number;
         height: number;
         heightratio: number;
-    }
-
-    export interface ProcessorOptions extends IViewerOptions {
-        drawLines: boolean;
-        drawFaces: boolean;
-        verbose: boolean;
-        viewerwidth: number;
-        viewerheight: number;
-        viewerheightratio: number;
     }
 
     export class Processor {
@@ -716,7 +710,7 @@ module OpenJsCad {
         private outputFileDirEntry;
         private outputFileBlobUrl;
 
-        constructor(containerdiv, options, onchange) {
+        constructor(containerdiv: HTMLDivElement, options?: ProcessorOptions, onchange?: EventHandler) {
             this.containerdiv = containerdiv;
             this.options = options = options || {};
             this.onchange = onchange;
@@ -1003,7 +997,7 @@ module OpenJsCad {
             this.statusdiv.style.display = this.hasError ? "none" : "block";
         }
 
-        setOpenJsCadPath (path) {
+        setOpenJsCadPath (path: string) {
             this.options['openJsCadPath'] = path;
         }
 
@@ -1014,19 +1008,19 @@ module OpenJsCad {
             this.options['libraries'].push(lib);
         }
 
-        setError (txt) {
+        setError (txt: string) {
             this.hasError = (txt != "");
             this.errorpre.textContent = txt;
             this.enableItems();
         }
 
-        setDebugging (debugging) {
+        setDebugging(debugging: boolean) {
             this.debugging = debugging;
         }
   
         // script: javascript code
         // filename: optional, the name of the .jscad file
-        setJsCad (script, filename) {
+        setJsCad (script: string, filename?: string) {
             if (!filename) filename = "openjscad.jscad";
             filename = filename.replace(/\.jscad$/i, "");
             this.abort();
